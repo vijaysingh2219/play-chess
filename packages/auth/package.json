@@ -1,0 +1,36 @@
+{
+  "name": "@workspace/auth",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": "./dist/index.js",
+    "./client": "./dist/client.js",
+    "./server": "./dist/server.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo node_modules",
+    "dev": "tsc --build --watch",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "prettier": "@workspace/prettier-config",
+  "dependencies": {
+    "@t3-oss/env-nextjs": "catalog:core",
+    "@workspace/db": "workspace:*",
+    "@workspace/email": "workspace:*",
+    "@workspace/rate-limit": "workspace:*",
+    "better-auth": "catalog:core",
+    "dotenv": "catalog:core",
+    "zod": "catalog:core"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:dev",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/prettier-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:dev"
+  }
+}

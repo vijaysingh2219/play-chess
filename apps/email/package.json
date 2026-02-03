@@ -1,0 +1,20 @@
+{
+  "name": "email",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "email build --dir ../../packages/email/src/templates",
+    "clean": "rm -rf dist .turbo node_modules",
+    "dev": "email dev --port 3002 --dir ../../packages/email/src/templates"
+  },
+  "dependencies": {
+    "@react-email/preview-server": "catalog:web",
+    "react": "catalog:core",
+    "react-email": "catalog:web"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:dev",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:dev"
+  }
+}

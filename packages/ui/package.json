@@ -1,0 +1,47 @@
+{
+  "name": "@workspace/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./globals.css": "./src/styles/globals.css",
+    "./postcss.config": "./postcss.config.mjs",
+    "./lib/*": "./src/lib/*.ts",
+    "./components/*": "./src/components/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0"
+  },
+  "prettier": "@workspace/prettier-config",
+  "dependencies": {
+    "@radix-ui/react-avatar": "catalog:web",
+    "@radix-ui/react-checkbox": "catalog:web",
+    "@radix-ui/react-dialog": "catalog:web",
+    "@radix-ui/react-dropdown-menu": "catalog:web",
+    "@radix-ui/react-label": "catalog:web",
+    "@radix-ui/react-separator": "catalog:web",
+    "@radix-ui/react-slot": "catalog:web",
+    "@radix-ui/react-tooltip": "catalog:web",
+    "class-variance-authority": "catalog:web",
+    "clsx": "catalog:web",
+    "input-otp": "catalog:web",
+    "lucide-react": "catalog:web",
+    "next-themes": "catalog:web",
+    "react": "catalog:core",
+    "react-dom": "catalog:core",
+    "react-hook-form": "catalog:web",
+    "tailwind-merge": "catalog:web",
+    "tw-animate-css": "catalog:web"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "catalog:web",
+    "@types/node": "catalog:dev",
+    "@types/react": "catalog:core",
+    "@types/react-dom": "catalog:core",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "tailwindcss": "catalog:web",
+    "typescript": "catalog:dev"
+  }
+}

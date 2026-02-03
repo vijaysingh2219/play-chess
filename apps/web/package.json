@@ -1,0 +1,44 @@
+{
+  "name": "web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .next .turbo node_modules",
+    "dev": "next dev --turbopack",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "start": "next start"
+  },
+  "prettier": "@workspace/prettier-config",
+  "dependencies": {
+    "@hookform/resolvers": "catalog:web",
+    "@tanstack/react-query": "catalog:web",
+    "@types/qrcode": "catalog:web",
+    "@workspace/auth": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "@workspace/ui": "workspace:*",
+    "@workspace/utils": "workspace:*",
+    "lucide-react": "catalog:web",
+    "next": "catalog:web",
+    "next-themes": "catalog:web",
+    "qrcode": "catalog:web",
+    "react": "catalog:core",
+    "react-dom": "catalog:core",
+    "react-hook-form": "catalog:web",
+    "sonner": "catalog:web",
+    "zod": "catalog:core"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:dev",
+    "@types/react": "catalog:core",
+    "@types/react-dom": "catalog:core",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/prettier-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "catalog:eslint",
+    "typescript": "catalog:dev"
+  }
+}
