@@ -1,0 +1,41 @@
+{
+  "name": "@workspace/chess",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./src/index.ts"
+    },
+    "./types": {
+      "default": "./dist/types.js",
+      "types": "./src/types.ts"
+    },
+    "./helpers": {
+      "default": "./dist/helpers.js",
+      "types": "./src/helpers.ts"
+    },
+    "./pgn": {
+      "default": "./dist/pgn.js",
+      "types": "./src/pgn.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo node_modules",
+    "dev": "tsc --build --watch",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "prettier": "@workspace/prettier-config",
+  "dependencies": {
+    "chess.js": "catalog:chess"
+  },
+  "devDependencies": {
+    "@types/chess.js": "catalog:chess",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/prettier-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:dev"
+  }
+}

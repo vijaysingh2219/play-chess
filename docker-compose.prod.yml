@@ -33,6 +33,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
@@ -62,6 +64,21 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: play-chess-redis
+    ports:
+      - 6379:6379
+    networks:
+      - app_network
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   play-chess-app_postgres_data:

@@ -3,7 +3,7 @@
 import { config } from '@/config/site';
 import { useSidebar } from '@workspace/ui/components/sidebar';
 import { cn } from '@workspace/ui/lib/utils';
-import { Layers } from 'lucide-react';
+import { CrownIcon } from 'lucide-react';
 
 type LogoProps = {
   variant: 'default' | 'header' | 'sidebar' | 'auth-form' | 'notFound';
@@ -24,7 +24,7 @@ export default function Logo({ variant, classes }: LogoProps) {
   return (
     <div className={cn(defaults.container, classes?.container ?? '')}>
       <div className={cn(defaults.logo, classes?.logo ?? '')}>
-        <Layers className={cn(defaults.icon, classes?.icon ?? '')} />
+        <CrownIcon className={cn(defaults.icon, classes?.icon ?? '')} />
       </div>
       {showText && <span className={cn(defaults.text, classes?.text ?? '')}>{config.name}</span>}
     </div>

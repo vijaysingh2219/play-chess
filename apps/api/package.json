@@ -16,17 +16,26 @@
     "preset": "@workspace/jest-presets/node"
   },
   "dependencies": {
+    "@socket.io/redis-adapter": "catalog:server",
     "@workspace/auth": "workspace:*",
+    "@workspace/db": "workspace:*",
     "@workspace/rate-limit": "workspace:*",
     "@workspace/utils": "workspace:*",
+    "bull": "catalog:server",
+    "chess.js": "catalog:chess",
     "cors": "catalog:server",
     "dotenv": "catalog:core",
     "express": "catalog:server",
     "helmet": "catalog:server",
-    "morgan": "catalog:server"
+    "ioredis": "catalog:server",
+    "morgan": "catalog:server",
+    "socket.io": "catalog:server",
+    "uuid": "catalog:server",
+    "zod": "catalog:core"
   },
   "devDependencies": {
     "@jest/globals": "catalog:dev",
+    "@types/chess.js": "catalog:chess",
     "@types/cors": "catalog:server",
     "@types/express": "catalog:server",
     "@types/morgan": "catalog:server",

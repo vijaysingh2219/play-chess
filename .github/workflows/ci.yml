@@ -213,6 +213,7 @@ jobs:
         run: pnpm build
         env:
           DATABASE_URL: "postgresql://user:pass@localhost:5432/test"
+          STRIPE_SECRET_KEY: "sk_test_123"
 
   format-check:
     name: Format Check

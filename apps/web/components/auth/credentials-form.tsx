@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { sendVerificationEmail, signIn, signUp } from '@workspace/auth/client';
+import { isUsernameAvailable, sendVerificationEmail, signIn, signUp } from '@workspace/auth/client';
 import { Button } from '@workspace/ui/components/button';
 import {
   Form,
@@ -17,10 +17,10 @@ import { Input } from '@workspace/ui/components/input';
 import { Spinner } from '@workspace/ui/components/spinner';
 import { signInSchema, signUpSchema } from '@workspace/utils/schemas';
 import { SignInFormValues, SignUpFormValues } from '@workspace/utils/types';
-import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
+import { Check, Eye, EyeOff, Lock, Mail, User, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -32,10 +32,56 @@ export function CredentialsForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
   const form = useForm<SignInFormValues | SignUpFormValues>({
     resolver: zodResolver(mode === 'sign-up' ? signUpSchema : signInSchema),
     defaultValues:
-      mode === 'sign-up' ? { name: '', email: '', password: '' } : { email: '', password: '' },
+      mode === 'sign-up'
+        ? { name: '', email: '', password: '', username: '' }
+        : { email: '', password: '' },
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<
+    'idle' | 'checking' | 'available' | 'unavailable'
+  >('idle');
+
+  // Watch username field for availability checking
+  const usernameValue = mode === 'sign-up' ? form.watch('username') : undefined;
+
+  useEffect(() => {
+    if (
+      mode === 'sign-up' &&
+      usernameValue &&
+      typeof usernameValue === 'string' &&
+      usernameValue.length >= 3
+    ) {
+      // Set status to checking
+      setUsernameStatus('checking');
+
+      const timeout = setTimeout(async () => {
+        try {
+          const { data, error } = await isUsernameAvailable({ username: usernameValue });
+          if (error) {
+            setUsernameStatus('idle');
+          } else if (data?.available) {
+            setUsernameStatus('available');
+          } else {
+            setUsernameStatus('unavailable');
+            if (mode === 'sign-up') {
+              form.setError('username', {
+                type: 'manual',
+                message: 'Username is already taken',
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error checking username:', error);
+          setUsernameStatus('idle');
+        }
+      }, 500); // Debounce for 500ms
+
+      return () => clearTimeout(timeout);
+    } else if (mode === 'sign-up' && (!usernameValue || usernameValue.length < 3)) {
+      setUsernameStatus('idle');
+    }
+  }, [usernameValue, mode, form]);
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (values: SignInFormValues | SignUpFormValues) => {
@@ -45,6 +91,7 @@ export function CredentialsForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
           email: signUpValues.email,
           password: signUpValues.password,
           name: signUpValues.name,
+          username: signUpValues.username,
         });
       }
       const signInValues = values as SignInFormValues;
@@ -132,6 +179,49 @@ export function CredentialsForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
                     />
                   </div>
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {mode === 'sign-up' && (
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem className="grid gap-3">
+                <FormLabel>
+                  Username <span className="text-primary">*</span>
+                </FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <User className="text-muted-foreground absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform" />
+                    <Input
+                      type="text"
+                      placeholder="e.g. johndoe123"
+                      autoComplete="username"
+                      className="pl-10 pr-10"
+                      required
+                      {...field}
+                    />
+                    {usernameStatus === 'checking' && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 transform">
+                        <Spinner className="h-5 w-5" />
+                      </div>
+                    )}
+                    {usernameStatus === 'available' && (
+                      <Check className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-green-600" />
+                    )}
+                    {usernameStatus === 'unavailable' && (
+                      <X className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-red-600" />
+                    )}
+                  </div>
+                </FormControl>
+                <FormDescription>
+                  Choose a unique username (3-30 characters, letters, numbers, and underscores
+                  only).
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}

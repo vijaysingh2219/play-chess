@@ -17,24 +17,39 @@ datasource db {
 model User {
   id               String      @id
   name             String
-  email            String
+  email            String      @unique
   emailVerified    Boolean     @default(false)
   image            String?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @default(now()) @updatedAt
   twoFactorEnabled Boolean?    @default(false)
+  displayUsername  String      @unique
+  username         String      @unique
+  stripeCustomerId String?     @unique
+  rating           Int         @default(1200)
+  lastSeenAt       DateTime?   @map("last_seen_at")
   sessions         Session[]
   accounts         Account[]
   twofactors       TwoFactor[]
 
-  @@unique([email])
+  gamesAsWhite Game[] @relation("WhitePlayer")
+  gamesAsBlack Game[] @relation("BlackPlayer")
+
+  challengesSent     Challenge[] @relation("ChallengesSent")
+  challengesReceived Challenge[] @relation("ChallengesReceived")
+
+  friendRequestsSent     Friendship[]  @relation("FriendRequestsSent")
+  friendRequestsReceived Friendship[]  @relation("FriendRequestsReceived")
+  playerStats            PlayerStats[]
+
+  @@index([stripeCustomerId])
   @@map("user")
 }
 
 model Session {
   id        String   @id
   expiresAt DateTime
-  token     String
+  token     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   ipAddress String?
@@ -42,7 +57,6 @@ model Session {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([token])
   @@map("session")
 }
 
@@ -84,4 +98,239 @@ model TwoFactor {
   user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("twoFactor")
+}
+
+model Subscription {
+  id                   String    @id
+  plan                 String
+  referenceId          String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  status               String
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  cancelAtPeriodEnd    Boolean?
+  cancelAt             DateTime?
+  canceledAt           DateTime?
+  endedAt              DateTime?
+  seats                Int?
+  trialStart           DateTime?
+  trialEnd             DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
+
+  @@index([referenceId])
+  @@map("subscription")
+}
+
+model Game {
+  id String @id @default(uuid())
+
+  // Players
+  whitePlayerId String @map("white_player_id")
+  blackPlayerId String @map("black_player_id")
+  whitePlayer   User   @relation("WhitePlayer", fields: [whitePlayerId], references: [id], onDelete: Cascade)
+  blackPlayer   User   @relation("BlackPlayer", fields: [blackPlayerId], references: [id], onDelete: Cascade)
+
+  // Game State
+  status GameStatus             @default(ONGOING)
+  winner Winner?
+  reason GameTerminationReason?
+
+  // Game Data
+  moves    Move[] // List of moves in the game
+  pgn      String? @db.Text // Standard PGN notation
+  finalFen String? @map("final_fen") @db.VarChar(255)
+
+  // Time Control
+  timeControl   String @map("time_control") // e.g., "10+0", "5+3"
+  initialTime   Int    @map("initial_time") // in seconds
+  incrementTime Int    @default(0) @map("increment_time") // in seconds 
+  whiteTimeLeft Int    @map("white_time_left") // in milliseconds
+  blackTimeLeft Int    @map("black_time_left") // in milliseconds
+
+  // Elo Changes
+  eloChangeWhite  Int? @map("elo_change_white")
+  eloChangeBlack  Int? @map("elo_change_black")
+  whiteEloAtStart Int  @map("white_elo_at_start")
+  blackEloAtStart Int  @map("black_elo_at_start")
+
+  // Game Type
+  gameType GameType @default(QUICK_MATCH) @map("game_type")
+  isRanked Boolean  @default(true) @map("is_ranked")
+
+  // Timestamps
+  startedAt DateTime  @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+
+  // Metadata
+  totalMoves      Int  @default(0) @map("total_moves")
+  durationSeconds Int? @map("duration_seconds")
+
+  @@index([whitePlayerId, blackPlayerId])
+  @@index([status])
+  @@index([reason])
+  @@index([startedAt])
+  @@index([gameType])
+  @@map("games")
+}
+
+model Move {
+  id     String @id @default(cuid())
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  moveNumber Int
+  color      Color
+
+  from  String
+  to    String
+  piece String
+
+  captured  String?
+  promotion String?
+
+  san String
+  lan String
+
+  fenBefore String
+  fenAfter  String
+
+  // Time tracking
+  timeSpent Int? // milliseconds spent on this move
+  timeLeft  Int? // milliseconds remaining after move
+
+  createdAt DateTime @default(now())
+
+  @@unique([gameId, moveNumber])
+  @@index([gameId, moveNumber])
+  @@map("moves")
+}
+
+model PlayerStats {
+  id String @id @default(uuid())
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique @map("user_id")
+
+  // Overall Stats
+  totalGames Int @default(0) @map("total_games")
+  wins       Int @default(0)
+  losses     Int @default(0)
+  draws      Int @default(0)
+
+  // Elo Tracking
+  highestElo Int @default(1200) @map("highest_elo")
+  lowestElo  Int @default(1200) @map("lowest_elo")
+
+  // Win Streaks
+  currentWinStreak Int @default(0) @map("current_win_streak")
+  bestWinStreak    Int @default(0) @map("best_win_streak")
+
+  // Color Statistics
+  gamesAsWhite Int @default(0) @map("games_as_white")
+  gamesAsBlack Int @default(0) @map("games_as_black")
+  winsAsWhite  Int @default(0) @map("wins_as_white")
+  winsAsBlack  Int @default(0) @map("wins_as_black")
+
+  // Time Statistics
+  totalPlayTime Int @default(0) @map("total_play_time") // in seconds
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("player_stats")
+}
+
+model Challenge {
+  id String @id @default(uuid())
+
+  senderId   String
+  receiverId String
+  sender     User   @relation("ChallengesSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User   @relation("ChallengesReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  status      ChallengeStatus @default(PENDING)
+  timeControl String          @map("time_control") @db.VarChar(20)
+  message     String?         @db.VarChar(255)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime  @map("expires_at")
+  respondedAt DateTime? @map("responded_at")
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("challenges")
+}
+
+model Friendship {
+  id String @id @default(uuid())
+
+  senderId   String
+  receiverId String
+  sender     User   @relation("FriendRequestsSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User   @relation("FriendRequestsReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  status FriendshipStatus @default(PENDING)
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  acceptedAt DateTime? @map("accepted_at")
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+  @@map("friendships")
+}
+
+enum Color {
+  w
+  b
+}
+
+enum GameType {
+  QUICK_MATCH
+  CHALLENGE
+}
+
+enum GameStatus {
+  ONGOING
+  COMPLETED
+  ABANDONED
+  ABORTED
+}
+
+enum GameTerminationReason {
+  CHECKMATE
+  STALEMATE
+  TIMEOUT
+  RESIGNATION
+  AGREEMENT
+  INSUFFICIENT_MATERIAL
+  THREEFOLD_REPETITION
+  FIFTY_MOVE_RULE
+  DISCONNECTION
+}
+
+enum Winner {
+  WHITE
+  BLACK
+  DRAW
+}
+
+enum ChallengeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  BLOCKED
 }

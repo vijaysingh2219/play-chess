@@ -5,13 +5,32 @@ if (process.env.NODE_ENV !== 'production') {
   dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 }
 
-import { createServer } from './server';
+import { createServer as createHttpServer } from 'http';
+import { createServer } from './express-server';
+import { initializeSocketServer, shutdownSocketServer } from './socket';
 
-const PORT = process.env.PORT || 4000;
+const port = process.env.PORT || 4000;
+const app = createServer();
 
-// Create Express app
-const server = createServer();
+const httpServer = createHttpServer(app);
+const socketServer = initializeSocketServer(httpServer);
 
-server.listen(PORT, () => {
-  console.log(`🚀 API server running on http://localhost:${PORT}`);
+httpServer.listen(port, () => {
+  console.log(`[API] Server is running on http://localhost:${port}`);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  await shutdownSocketServer(socketServer);
+  httpServer.close(() => {
+    console.log('Process terminated');
+  });
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully');
+  await shutdownSocketServer(socketServer);
+  httpServer.close(() => {
+    process.exit(0);
+  });
 });

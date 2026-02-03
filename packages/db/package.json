@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./client": "./dist/client.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

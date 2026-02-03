@@ -43,7 +43,7 @@ jest.mock('../../middleware/auth', () => ({
   }),
 }));
 
-import { createServer } from '../../server';
+import { createServer } from '../../express-server';
 
 describe('API Server', () => {
   let app: ReturnType<typeof createServer>;

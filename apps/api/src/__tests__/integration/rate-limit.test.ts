@@ -45,7 +45,7 @@ jest.mock('@workspace/rate-limit', () => ({
   })),
 }));
 
-import { createServer } from '../../server';
+import { createServer } from '../../express-server';
 
 describe('Rate Limiting Integration Tests', () => {
   let app: ReturnType<typeof createServer>;

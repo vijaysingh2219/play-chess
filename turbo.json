@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "concurrency": "15",
   "ui": "tui",
   "tasks": {
     "build": {
@@ -58,10 +59,17 @@
         "PORT",
         "ALLOWED_ORIGINS",
         "BETTER_AUTH_URL",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_PRICE_ID_PRO_MONTHLY",
+        "STRIPE_PRICE_ID_PRO_YEARLY",
         "RESEND_TOKEN",
         "RESEND_EMAIL_FROM",
         "UPSTASH_REDIS_REST_URL",
-        "UPSTASH_REDIS_REST_TOKEN"
+        "UPSTASH_REDIS_REST_TOKEN",
+        "REDIS_URL",
+        "REDIS_HOST",
+        "REDIS_PORT"
       ]
     },
     "start": {

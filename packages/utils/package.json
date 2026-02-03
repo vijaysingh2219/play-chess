@@ -7,6 +7,10 @@
       "default": "./dist/index.js",
       "types": "./src/index.ts"
     },
+    "./constants": {
+      "default": "./dist/constants/index.js",
+      "types": "./src/constants/index.ts"
+    },
     "./helpers": {
       "default": "./dist/helpers/index.js",
       "types": "./src/helpers/index.ts"
@@ -29,10 +33,14 @@
   },
   "prettier": "@workspace/prettier-config",
   "dependencies": {
+    "@workspace/chess": "workspace:*",
+    "chess.js": "catalog:chess",
     "date-fns": "catalog:core",
+    "socket.io": "catalog:server",
     "zod": "catalog:core"
   },
   "devDependencies": {
+    "@types/chess.js": "catalog:chess",
     "@workspace/eslint-config": "workspace:^",
     "@workspace/prettier-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",

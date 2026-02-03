@@ -8,9 +8,9 @@ export const generatePageMetadata = (
     noindex?: boolean;
   },
 ): Metadata => {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://play-chess.vercel.app';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://play-chess.gg';
   const ogImage = options?.ogImage || '/og-image.png';
-  const formattedTitle = `${title} | play-chess`;
+  const formattedTitle = `${title} | Play Chess`;
 
   return {
     title: formattedTitle,
@@ -46,13 +46,9 @@ export const generatePageMetadata = (
 // Page-specific metadata
 export const pageMetadata = {
   home: {
-    title: 'play-chess | Fullstack Turborepo Starter Template',
+    title: 'Home',
     description:
-      'A modern fullstack starter template with Next.js, TypeScript, Prisma, Better Auth, and shadcn/ui. Build scalable applications with Turborepo.',
-  },
-  dashboard: {
-    title: 'Dashboard',
-    description: 'Manage your account and view your dashboard.',
+      'Play chess online for free with friends and players around the world. Enjoy real-time and turn-based games and improve your skills.',
   },
   profile: {
     title: 'Profile',
@@ -105,5 +101,36 @@ export const pageMetadata = {
   error: {
     title: 'Error',
     description: 'An error occurred while processing your request.',
+  },
+  membership: {
+    title: 'Improve Your Chess with a Premium Membership',
+    description: 'Unlock premium features, and enhance your chess experience with a membership.',
+  },
+  leaderboard: {
+    title: 'Chess Leaderboard and Rankings',
+    description:
+      'Check the top players, view rankings, and see who is leading in real-time chess matches.',
+  },
+  games: {
+    title: 'Games History',
+    description:
+      'View your past chess games, analyze moves, replay matches, and track your progress over time.',
+  },
+  game: {
+    title: 'Play Chess Online',
+    description:
+      'Watch or replay Chess Game, analyze moves, and track match details in real-time or later.',
+  },
+  friends: {
+    title: 'Friends',
+    description:
+      'Connect with friends, challenge them to real-time chess games, and track your matches.',
+  },
+  play: {
+    online: {
+      title: 'Play Chess Online',
+      description:
+        'Play chess games online in real-time with friends or other players around the world.',
+    },
   },
 };

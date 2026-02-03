@@ -62,7 +62,7 @@ jest.mock('@workspace/rate-limit', () => ({
   })),
 }));
 
-import { createServer } from '../../server';
+import { createServer } from '../../express-server';
 
 describe('User Routes', () => {
   let app: Express;

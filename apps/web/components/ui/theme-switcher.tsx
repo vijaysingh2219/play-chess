@@ -1,6 +1,6 @@
 'use client';
 
-import useMounted from '@/hooks/useMounted';
+import useMounted from '@/hooks/use-mounted';
 import { Button } from '@workspace/ui/components/button';
 import {
   DropdownMenu,

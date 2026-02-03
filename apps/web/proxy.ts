@@ -1,4 +1,4 @@
-import { auth } from '@workspace/auth';
+import { auth } from '@workspace/auth/server';
 import { prisma } from '@workspace/db';
 import { NextRequest, NextResponse } from 'next/server';
 

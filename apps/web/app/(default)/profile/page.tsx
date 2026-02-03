@@ -1,7 +1,7 @@
 'use client';
 
 import { useRequiredAuthUser } from '@/hooks/use-auth-user';
-import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from '@workspace/ui/components/card';
 import { Separator } from '@workspace/ui/components/separator';
-import { formatDate } from '@workspace/utils';
+import { formatDate } from '@workspace/utils/helpers';
 import {
   Calendar,
   Check,

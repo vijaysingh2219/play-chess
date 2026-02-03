@@ -1,26 +1,33 @@
 import { auth, fromNodeHeaders } from '@workspace/auth';
 import { NextFunction, Request, Response } from 'express';
 
-/**
- * Middleware to get the session from Better Auth and attach it to the request object.
- * This middleware extracts the session from cookies/headers and makes it available
- * on req.session and req.user for subsequent middleware and route handlers.
- */
 export const getSession = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    // Use Better Auth's fromNodeHeaders helper to convert Node.js headers
-    // to the Headers object format expected by Better Auth
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
 
-    // Attach session and user to request object
-    req.session = session;
-    req.user = session?.user || null;
+    // Ensure user object includes all required properties
+    let userWithDefaults = null;
+    if (session?.user) {
+      userWithDefaults = {
+        twoFactorEnabled: null,
+        username: undefined,
+        displayUsername: undefined,
+        ...session.user,
+      };
+    }
+    if (session && userWithDefaults) {
+      req.session = { ...session, user: userWithDefaults };
+      req.user = userWithDefaults;
+    } else {
+      req.session = null;
+      req.user = null;
+    }
 
     next();
   } catch (error) {
@@ -31,17 +38,11 @@ export const getSession = async (
   }
 };
 
-/**
- * Middleware to require authentication.
- * Returns 401 if no valid session is found.
- * Use this middleware on routes that require authentication.
- */
 export const requireAuth = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
-  // First get the session if not already attached
   if (req.session === undefined) {
     await getSession(req, res, () => {});
   }

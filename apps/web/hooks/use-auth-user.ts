@@ -2,7 +2,9 @@ import { useSession } from '@workspace/auth/client';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-type AuthUser = NonNullable<ReturnType<typeof useSession>['data']>['user'];
+export type AuthUser = NonNullable<ReturnType<typeof useSession>['data']>['user'] & {
+  rating?: number | null;
+};
 
 interface UseAuthUserOptions {
   redirectOnUnauthenticated?: boolean;

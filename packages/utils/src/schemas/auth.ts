@@ -22,6 +22,18 @@ export const nameSchema = z
     message: 'Name must be less than 100 characters.',
   });
 
+export const usernameSchema = z
+  .string()
+  .min(3, {
+    message: 'Username must be at least 3 characters.',
+  })
+  .max(30, {
+    message: 'Username must be less than 30 characters.',
+  })
+  .regex(/^[a-zA-Z0-9_]+$/, {
+    message: 'Username can only contain letters, numbers, and underscores.',
+  });
+
 export const signInSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
@@ -31,6 +43,7 @@ export const signUpSchema = z.object({
   name: nameSchema,
   email: emailSchema,
   password: passwordSchema,
+  username: usernameSchema,
 });
 
 export const setPasswordSchema = z

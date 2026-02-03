@@ -1,3 +1,4 @@
+import { stripe } from '@better-auth/stripe';
 import { prisma } from '@workspace/db';
 import {
   changeEmailSchema,
@@ -6,6 +7,8 @@ import {
   sendEmail,
   verifyEmailSchema,
 } from '@workspace/email';
+import { getStripe, WEBHOOK_SECRET } from '@workspace/payments/client';
+import { PLANS } from '@workspace/payments/plans';
 import {
   changeEmailRateLimiter,
   resetPasswordRateLimiter,
@@ -13,9 +16,11 @@ import {
 } from '@workspace/rate-limit';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { twoFactor } from 'better-auth/plugins';
+import { twoFactor, username } from 'better-auth/plugins';
+import { generateUniqueUsername } from './helpers';
 
-export const auth = betterAuth({
+export const auth: ReturnType<typeof betterAuth> = betterAuth({
+  baseURL: process.env.BETTER_AUTH_URL as string,
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
@@ -120,6 +125,19 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      mapProfileToUser: async (profile) => {
+        // Validate required fields
+        if (!profile.email) {
+          throw new Error('Email is required from Google profile');
+        }
+        const uniqueUsername = await generateUniqueUsername(profile.email);
+        return {
+          name: profile.name || uniqueUsername,
+          email: profile.email,
+          username: uniqueUsername,
+          displayUsername: uniqueUsername,
+        };
+      },
     },
   },
   account: {
@@ -130,6 +148,15 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    username(),
+    stripe({
+      stripeClient: getStripe(),
+      stripeWebhookSecret: WEBHOOK_SECRET,
+      subscription: {
+        enabled: true,
+        plans: PLANS,
+      },
+    }),
     twoFactor({
       issuer: 'PlayChess',
     }),

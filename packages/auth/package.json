@@ -18,12 +18,16 @@
   },
   "prettier": "@workspace/prettier-config",
   "dependencies": {
+    "@better-auth/stripe": "catalog:core",
     "@t3-oss/env-nextjs": "catalog:core",
     "@workspace/db": "workspace:*",
     "@workspace/email": "workspace:*",
+    "@workspace/payments": "workspace:*",
     "@workspace/rate-limit": "workspace:*",
+    "@workspace/utils": "workspace:*",
     "better-auth": "catalog:core",
     "dotenv": "catalog:core",
+    "stripe": "20.0.0",
     "zod": "catalog:core"
   },
   "devDependencies": {
