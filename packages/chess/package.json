@@ -4,20 +4,20 @@
   "private": true,
   "exports": {
     ".": {
-      "default": "./dist/index.js",
-      "types": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./types": {
-      "default": "./dist/types.js",
-      "types": "./src/types.ts"
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
     },
     "./helpers": {
-      "default": "./dist/helpers.js",
-      "types": "./src/helpers.ts"
+      "types": "./dist/helpers.d.ts",
+      "default": "./dist/helpers.js"
     },
     "./pgn": {
-      "default": "./dist/pgn.js",
-      "types": "./src/pgn.ts"
+      "types": "./dist/pgn.d.ts",
+      "default": "./dist/pgn.js"
     }
   },
   "scripts": {

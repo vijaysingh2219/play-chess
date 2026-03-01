@@ -1,6 +1,7 @@
 'use client';
 
-import { useSendFriendRequest } from '@/hooks/mutations/friends';
+import { useBlockUser, useSendFriendRequest } from '@/hooks/mutations/friends';
+import { useFriendshipStatus } from '@/hooks/queries/friends';
 import { DisplayUser } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
 import { Badge } from '@workspace/ui/components/badge';
@@ -16,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@workspace/ui/component
 import { Separator } from '@workspace/ui/components/separator';
 import { cn } from '@workspace/ui/lib/utils';
 import { formatDate } from '@workspace/utils/helpers';
-import { BarChart2, CalendarDays, Gamepad2, ListChecks, Trophy, UserPlus } from 'lucide-react';
+import { Ban, BarChart2, CalendarDays, Gamepad2, ListChecks, Trophy, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -57,6 +58,11 @@ export function UserProfileDialog({
     return formatDate(new Date(date), 'MMM dd, yyyy');
   };
   const { mutate, isPending } = useSendFriendRequest();
+  const blockUser = useBlockUser();
+  const { data: friendshipStatus } = useFriendshipStatus(user.id);
+
+  const isBlocked = friendshipStatus?.status === 'BLOCKED';
+  const isSelf = friendshipStatus?.status === 'self';
 
   const addFriend = (username?: string | null) => {
     if (!username) return;
@@ -69,6 +75,11 @@ export function UserProfileDialog({
         console.error(error);
       },
     });
+  };
+
+  const handleBlock = () => {
+    if (!user.id) return;
+    blockUser.mutate(user.id);
   };
   return (
     <Popover>
@@ -120,7 +131,7 @@ export function UserProfileDialog({
 
             {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-2">
-              {showAddFriend && (
+              {showAddFriend && !isBlocked && !isSelf && (
                 <Button
                   variant="default"
                   className="flex-1"
@@ -131,7 +142,7 @@ export function UserProfileDialog({
                   Add Friend
                 </Button>
               )}
-              {showChallenge && (
+              {showChallenge && !isBlocked && !isSelf && (
                 <Button
                   variant="outline"
                   className="flex-1"
@@ -139,6 +150,17 @@ export function UserProfileDialog({
                 >
                   <Gamepad2 className="mr-2 h-4 w-4" />
                   Challenge
+                </Button>
+              )}
+              {!isSelf && (
+                <Button
+                  variant={isBlocked ? 'secondary' : 'destructive'}
+                  className="flex-1"
+                  onClick={handleBlock}
+                  disabled={isBlocked || blockUser.isPending}
+                >
+                  <Ban className="mr-2 h-4 w-4" />
+                  {isBlocked ? 'Blocked' : 'Block'}
                 </Button>
               )}
               {showStats && (

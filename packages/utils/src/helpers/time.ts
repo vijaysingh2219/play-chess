@@ -89,6 +89,34 @@ export function formatTime(ms: number, format: TimeFormat = 'h:m:s') {
     .join(':');
 }
 
+/**
+ * Format a time control string (e.g., "5+0", "3+2") into a human-readable label.
+ * @param timeControl - Time control string in "minutes+incrementSeconds" format
+ * @returns Human-readable string like "5 min", "3 min + 2s"
+ */
+export function formatTimeControlDisplay(timeControl: string): string {
+  if (!timeControl) return 'Untimed';
+
+  const [minutesRaw, incrementRaw = '0'] = timeControl.split('+');
+  const minutes = Number(minutesRaw) || 0;
+  const increment = Number(incrementRaw) || 0;
+
+  // Guard against millisecond values being passed accidentally
+  if (minutes > 180) {
+    const correctedMinutes = Math.floor(minutes / 60000);
+    const correctedIncrement = Math.floor(increment / 1000);
+    if (correctedIncrement > 0) {
+      return `${correctedMinutes} min + ${correctedIncrement}s`;
+    }
+    return `${correctedMinutes} min`;
+  }
+
+  if (increment > 0) {
+    return `${minutes} min + ${increment}s`;
+  }
+  return `${minutes} min`;
+}
+
 export type ParsedTimeControl = {
   initialMinutes: number;
   initialTimeSeconds: number;

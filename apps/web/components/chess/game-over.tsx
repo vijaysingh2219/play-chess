@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@workspace/ui/components/dialog';
 import { cn } from '@workspace/ui/lib/utils';
+import { formatTimeControlDisplay } from '@workspace/utils/helpers';
 import type { GameTerminationReason, Winner } from '@workspace/utils/types';
 import { Color } from 'chess.js';
 import { Frown, Handshake, Swords, Trophy } from 'lucide-react';
@@ -143,7 +144,7 @@ export function GameOverDialog({
             {/* Action buttons */}
             <div className="flex flex-col gap-2">
               <Button onClick={handleNewMatch} className="w-full">
-                New {timeControl} Game
+                New {formatTimeControlDisplay(timeControl)} Game
               </Button>
               <Button onClick={handleGoHome} variant="outline" className="w-full">
                 Return to Home

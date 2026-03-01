@@ -124,7 +124,7 @@ export const GameLayout: React.FC<GameLayoutProps> = ({
                         <Repeat2 className="h-3.5 w-3.5" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Flip Board (F)</TooltipContent>
+                    <TooltipContent>Flip Board (X)</TooltipContent>
                   </Tooltip>
                 )}
               </div>

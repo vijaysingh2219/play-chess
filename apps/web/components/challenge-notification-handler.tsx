@@ -1,6 +1,8 @@
 'use client';
 
+import { useRequiredAuthUser } from '@/hooks/use-auth-user';
 import { useChallenge } from '@/hooks/use-challenge';
+import { formatTimeControlDisplay } from '@/lib/utils';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -21,10 +23,12 @@ import { toast } from 'sonner';
  * with accept/decline options. It should be included once in the app layout.
  */
 export function ChallengeNotificationHandler() {
+  const { user } = useRequiredAuthUser();
   const { receivedChallenge, acceptChallenge, declineChallenge, clearReceivedChallenge } =
     useChallenge();
 
   React.useEffect(() => {
+    if (!user) return; // Don't listen for challenges if not authenticated
     if (!receivedChallenge) return;
 
     // Show toast notification with custom component
@@ -42,7 +46,9 @@ export function ChallengeNotificationHandler() {
             <CardDescription className="flex items-center gap-2">
               <span>Rating: {receivedChallenge.sender.rating}</span>
               <span className="text-muted-foreground">•</span>
-              <span className="font-medium">{receivedChallenge.timeControl}</span>
+              <span className="font-medium">
+                {formatTimeControlDisplay(receivedChallenge.timeControl)}
+              </span>
             </CardDescription>
           </CardHeader>
 
@@ -99,7 +105,7 @@ export function ChallengeNotificationHandler() {
     return () => {
       toast.dismiss(toastId);
     };
-  }, [receivedChallenge, acceptChallenge, declineChallenge, clearReceivedChallenge]);
+  }, [receivedChallenge, acceptChallenge, declineChallenge, clearReceivedChallenge, user]);
 
   // This component doesn't render anything visible
   return null;

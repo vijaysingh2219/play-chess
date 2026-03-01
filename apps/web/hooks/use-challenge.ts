@@ -1,6 +1,7 @@
 'use client';
 
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
+import { formatTimeControlDisplay } from '@workspace/utils/helpers';
 import {
   ChallengeAcceptedPayload,
   ChallengeReceivedPayload,
@@ -154,7 +155,7 @@ export function useChallenge(): UseChallengeReturn {
       });
 
       toast.info(`Challenge from ${payload.sender.username}!`, {
-        description: `Time control: ${payload.timeControl}`,
+        description: `Time control: ${formatTimeControlDisplay(payload.timeControl)}`,
         duration: 10000,
       });
     };

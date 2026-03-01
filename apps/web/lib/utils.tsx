@@ -2,7 +2,12 @@ import { cn } from '@workspace/ui/lib/utils';
 import type { CapturedPieceSymbol } from '@workspace/utils/types';
 import { Clock, Equal, Minus, Plus } from 'lucide-react';
 
-export { formatDuration, formatTime, formatTimeControl } from '@workspace/utils/helpers';
+export {
+  formatDuration,
+  formatTime,
+  formatTimeControl,
+  formatTimeControlDisplay,
+} from '@workspace/utils/helpers';
 
 export const renderResultIcon = (myColor: 'white' | 'black' | null, result: string | null) => {
   const baseClass = 'size-4 rounded';

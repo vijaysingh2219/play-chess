@@ -30,7 +30,20 @@ export default function AddFriendDialog() {
         toast.success('Friend request sent');
       },
       onError: (error) => {
-        toast.error(error.message ?? 'Failed to send request');
+        // Handle specific error cases from the API
+        const errorMessage = error.message ?? 'Failed to send request';
+
+        if (errorMessage.includes('Please wait')) {
+          toast.error('Cooldown active', {
+            description: errorMessage,
+          });
+        } else if (errorMessage.includes('cannot send a request')) {
+          toast.error('Blocked', {
+            description: 'You cannot send a friend request to this user.',
+          });
+        } else {
+          toast.error(errorMessage);
+        }
         console.error(error);
       },
     });

@@ -25,3 +25,26 @@ export const useRequests = (userId: string, type: 'sent' | 'received') => {
     enabled: !!userId,
   });
 };
+
+export const useBlockedUsers = () => {
+  return useQuery({
+    queryKey: queryKeys.blocked.list,
+    queryFn: async () => {
+      const res = await fetch('/api/friends/blocked');
+      if (!res.ok) throw new Error('Failed to fetch blocked users');
+      return (await res.json()).data;
+    },
+  });
+};
+
+export const useFriendshipStatus = (targetUserId: string) => {
+  return useQuery({
+    queryKey: queryKeys.friends.status(targetUserId),
+    queryFn: async () => {
+      const res = await fetch(`/api/friends/status?userId=${targetUserId}`);
+      if (!res.ok) throw new Error('Failed to fetch friendship status');
+      return res.json();
+    },
+    enabled: !!targetUserId,
+  });
+};

@@ -30,6 +30,11 @@
     "turbo": "catalog:core",
     "typescript": "catalog:dev"
   },
+  "pnpm": {
+    "overrides": {
+      "@react-email/render": "1.3.2"
+    }
+  },
   "packageManager": "pnpm@10.4.1",
   "engines": {
     "node": ">=20"

@@ -3,6 +3,7 @@
 import { Users } from 'lucide-react';
 
 import AddFriendDialog from '@/components/friends/add-friend';
+import BlockedUsers from '@/components/friends/blocked-users';
 import FriendRequests from '@/components/friends/friend-requests';
 import Friends from '@/components/friends/friends';
 import PendingRequests from '@/components/friends/pending-requests';
@@ -17,13 +18,13 @@ const FriendsPage = () => {
   const { user } = useRequiredAuthUser();
   if (!user) return null;
 
-  const validTabs = ['pending', 'requests'];
+  const validTabs = ['pending', 'requests', 'blocked'];
   if (tab && !validTabs.includes(tab)) {
     return notFound();
   }
 
   function onTabChange(value: string) {
-    if (value === 'pending' || value === 'requests') {
+    if (value === 'pending' || value === 'requests' || value === 'blocked') {
       router.push(`/friends/${value}`);
     } else if (value === 'friends') {
       router.push(`/friends`);
@@ -52,6 +53,7 @@ const FriendsPage = () => {
           <TabsTrigger value="friends">Friends</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="blocked">Blocked</TabsTrigger>
         </TabsList>
 
         <TabsContent value="friends">
@@ -67,6 +69,12 @@ const FriendsPage = () => {
         <TabsContent value="pending">
           <div className="text-muted-foreground">
             <PendingRequests userId={userId} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="blocked">
+          <div className="text-muted-foreground">
+            <BlockedUsers />
           </div>
         </TabsContent>
       </Tabs>

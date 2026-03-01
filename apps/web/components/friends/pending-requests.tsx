@@ -57,6 +57,13 @@ const PendingRequests = ({ userId }: { userId: string }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
+          {pending?.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+                No pending requests
+              </TableCell>
+            </TableRow>
+          )}
           {pending?.map((req: Pending) => (
             <TableRow key={req.id}>
               <TableCell>

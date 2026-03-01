@@ -13,6 +13,7 @@ import {
   ChallengeResponsePayload,
   ChallengeResponseSchema,
 } from '../schemas';
+import { gameService } from '../services/game';
 
 async function hasActiveSubscription(userId: string): Promise<boolean> {
   try {
@@ -91,6 +92,20 @@ async function handleCreateChallenge(
 
   if (senderId === receiverId) {
     throw new Error('VALIDATION_ERROR: Cannot challenge yourself');
+  }
+
+  // Check if either user has blocked the other
+  const blocked = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { senderId, receiverId, status: 'BLOCKED' },
+        { senderId: receiverId, receiverId: senderId, status: 'BLOCKED' },
+      ],
+    },
+  });
+
+  if (blocked) {
+    throw new Error('VALIDATION_ERROR: You cannot challenge this user');
   }
 
   const existingChallenge = await prisma.challenge.findFirst({
@@ -174,27 +189,23 @@ async function handleAcceptChallenge(
     throw new Error('VALIDATION_ERROR: Challenge has expired');
   }
 
-  const { initialMinutes, incrementSeconds } = parseTimeControl(challenge.timeControl);
+  const { initialTimeSeconds, incrementSeconds } = parseTimeControl(challenge.timeControl);
 
   const player1IsWhite = Math.random() < 0.5;
   const whitePlayerId = player1IsWhite ? challenge.senderId : challenge.receiverId;
   const blackPlayerId = player1IsWhite ? challenge.receiverId : challenge.senderId;
 
-  const game = await prisma.game.create({
-    data: {
-      whitePlayerId,
-      blackPlayerId,
-      timeControl: challenge.timeControl,
-      initialTime: initialMinutes * 60,
-      incrementTime: incrementSeconds,
-      whiteTimeLeft: initialMinutes * 60 * 1000,
-      blackTimeLeft: initialMinutes * 60 * 1000,
-      gameType: 'CHALLENGE',
-      whiteEloAtStart: player1IsWhite ? challenge.sender.rating : challenge.receiver.rating,
-      blackEloAtStart: player1IsWhite ? challenge.receiver.rating : challenge.sender.rating,
-      isRanked: true,
-    },
-  });
+  const gameId = await gameService.createGame(
+    whitePlayerId,
+    blackPlayerId,
+    challenge.timeControl,
+    initialTimeSeconds,
+    incrementSeconds,
+    player1IsWhite ? challenge.sender.rating : challenge.receiver.rating,
+    player1IsWhite ? challenge.receiver.rating : challenge.sender.rating,
+    'CHALLENGE',
+    true,
+  );
 
   await cancelChallengeExpiration(challengeId);
 
@@ -209,20 +220,20 @@ async function handleAcceptChallenge(
   const senderIsWhite = challenge.senderId === whitePlayerId;
 
   io.to(getUserRoomId(challenge.senderId)).emit(SOCKET_EVENTS.CHALLENGE_ACCEPTED, {
-    gameId: game.id,
+    gameId,
     opponent: challenge.receiver,
     color: senderIsWhite ? 'white' : 'black',
     timeControl: challenge.timeControl,
   });
 
   io.to(getUserRoomId(challenge.receiverId)).emit(SOCKET_EVENTS.CHALLENGE_ACCEPTED, {
-    gameId: game.id,
+    gameId,
     opponent: challenge.sender,
     color: senderIsWhite ? 'black' : 'white',
     timeControl: challenge.timeControl,
   });
 
-  console.log(`[Challenge] Challenge ${challengeId} accepted, game ${game.id} created`);
+  console.log(`[Challenge] Challenge ${challengeId} accepted, game ${gameId} created`);
 }
 
 async function handleDeclineChallenge(

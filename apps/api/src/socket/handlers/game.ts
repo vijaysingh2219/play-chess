@@ -38,7 +38,7 @@ export function setupGameHandlers(io: TypedServer): void {
       SOCKET_EVENTS.PLAYER_READY,
       createHandler(socket, GameIdSchema, async (payload) => {
         console.log('[Game] Player ready received');
-        await handlePlayerReady(socket, payload);
+        await handlePlayerReady(io, socket, payload);
       }),
     );
 
@@ -129,15 +129,40 @@ async function handleLeaveGame(socket: AuthenticatedSocket, payload: GameIdPaylo
 }
 
 async function handlePlayerReady(
+  io: TypedServer,
   socket: AuthenticatedSocket,
   payload: GameIdPayload,
 ): Promise<void> {
   const { gameId } = payload;
   const userId = socket.data.userId;
 
-  await gameService.markPlayerReady(gameId, userId);
+  const result = await gameService.markPlayerReady(gameId, userId);
 
   console.log(`[Game] ${socket.data.username} is ready in game ${gameId}`);
+
+  // When both players are ready, emit GAME_SYNC so clients start their clocks
+  if (result.bothReady) {
+    // Load game WITHOUT elapsed-time calculation since clocks just started
+    const gameState = await gameService.loadGame(gameId, false);
+    if (gameState) {
+      const whitePlayerId = gameState.whitePlayerId;
+      const blackPlayerId = gameState.blackPlayerId;
+
+      io.to(getUserRoomId(whitePlayerId)).emit(SOCKET_EVENTS.GAME_SYNC, {
+        game: gameState,
+        yourColor: 'w',
+        canMove: gameState.currentTurn === 'w',
+      });
+
+      io.to(getUserRoomId(blackPlayerId)).emit(SOCKET_EVENTS.GAME_SYNC, {
+        game: gameState,
+        yourColor: 'b',
+        canMove: gameState.currentTurn === 'b',
+      });
+
+      console.log(`[Game] Both players ready, GAME_SYNC emitted for game ${gameId}`);
+    }
+  }
 }
 
 async function handleMakeMove(
@@ -148,7 +173,13 @@ async function handleMakeMove(
   const { gameId, from, to, promotion } = payload;
   const userId = socket.data.userId;
 
-  const { moveData, gameState } = await gameService.makeMove(gameId, userId, from, to, promotion);
+  const { moveData, gameState, gameEndInfo } = await gameService.makeMove(
+    gameId,
+    userId,
+    from,
+    to,
+    promotion,
+  );
 
   const chess = new Chess(gameState.currentFen);
 
@@ -175,6 +206,32 @@ async function handleMakeMove(
   socket.to(roomId).emit(SOCKET_EVENTS.OPPONENT_MOVED, moveResponse);
 
   console.log(`[Game] ${socket.data.username} moved ${moveData.san} in game ${gameId}`);
+
+  // If the game ended due to checkmate/stalemate/draw, emit GAME_ENDED
+  if (gameEndInfo) {
+    await playerManager.removeUserActiveGame(gameState.whitePlayerId);
+    await playerManager.removeUserActiveGame(gameState.blackPlayerId);
+    await playerManager.setUserStatus(gameState.whitePlayerId, 'idle');
+    await playerManager.setUserStatus(gameState.blackPlayerId, 'idle');
+
+    io.in(roomId).emit(SOCKET_EVENTS.GAME_ENDED, {
+      gameId,
+      winner: gameEndInfo.winner,
+      reason: gameEndInfo.reason,
+      finalFen: gameState.currentFen,
+      eloChanges: {
+        white: gameEndInfo.ratings.whiteChange,
+        black: gameEndInfo.ratings.blackChange,
+      },
+      newRatings: {
+        white: gameEndInfo.ratings.whiteNewRating,
+        black: gameEndInfo.ratings.blackNewRating,
+      },
+      pgn: '',
+    });
+
+    console.log(`[Game] Game ${gameId} ended: ${gameEndInfo.winner} by ${gameEndInfo.reason}`);
+  }
 }
 
 async function handleResign(

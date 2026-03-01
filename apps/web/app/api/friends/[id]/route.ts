@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 const FriendRequestActionSchema = z.object({
-  action: z.enum(['accept', 'reject', 'cancel', 'remove']),
+  action: z.enum(['accept', 'reject', 'cancel', 'remove', 'block']),
 });
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -40,7 +40,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
       await prisma.friendship.update({
         where: { id: friendRequestId },
-        data: { status: 'ACCEPTED' },
+        data: { status: 'ACCEPTED', acceptedAt: new Date() },
       });
 
       return NextResponse.json({ message: 'Friend request accepted' });
@@ -49,19 +49,61 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
+      const newDeclineCount = (fr.declineCount ?? 0) + 1;
+      const MAX_DECLINE_COUNT = 3;
+
+      // Auto-block after too many declines
+      if (newDeclineCount >= MAX_DECLINE_COUNT) {
+        await prisma.friendship.update({
+          where: { id: friendRequestId },
+          data: {
+            status: 'BLOCKED',
+            declineCount: newDeclineCount,
+            declinedAt: new Date(),
+            blockedAt: new Date(),
+            blockedBy: userId,
+          },
+        });
+
+        return NextResponse.json({
+          message: 'Friend request rejected and user has been auto-blocked',
+        });
+      }
+
       await prisma.friendship.update({
         where: { id: friendRequestId },
-        data: { status: 'DECLINED' },
+        data: {
+          status: 'DECLINED',
+          declineCount: newDeclineCount,
+          declinedAt: new Date(),
+        },
       });
 
       return NextResponse.json({ message: 'Friend request rejected' });
+    } else if (action === 'block') {
+      // Either party can block
+      if (fr.senderId !== userId && fr.receiverId !== userId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      await prisma.friendship.update({
+        where: { id: friendRequestId },
+        data: {
+          status: 'BLOCKED',
+          blockedAt: new Date(),
+          blockedBy: userId,
+        },
+      });
+
+      return NextResponse.json({ message: 'User blocked successfully' });
     } else if (action === 'cancel') {
       if (fr.senderId !== userId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
 
-      await prisma.friendship.delete({
+      await prisma.friendship.update({
         where: { id: friendRequestId },
+        data: { status: 'CANCELLED' },
       });
 
       return NextResponse.json({ message: 'Friend request canceled' });

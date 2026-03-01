@@ -161,27 +161,46 @@ export function useReplayControls({
   }, [isPlaying, moves, playInterval, playMoveSound]);
 
   /**
-   * Calculate time remaining for a player at the current move
+   * Calculate time remaining for a player at the current move.
+   * Uses the stored `timeLeft` from the DB when available (accurate),
+   * falls back to computing from `timeSpent` for older games.
    */
   const getTimeAtMove = useCallback(
     (player: 'white' | 'black'): number => {
       if (!initialTime || !moves.length) return initialTime;
+      if (currentMoveIndex === -1) return initialTime;
 
+      // Find the last move made by the specified player at or before currentMoveIndex
+      let lastPlayerMoveIndex = -1;
+      for (let i = currentMoveIndex; i >= 0; i--) {
+        const isWhiteMove = i % 2 === 0;
+        if ((player === 'white' && isWhiteMove) || (player === 'black' && !isWhiteMove)) {
+          lastPlayerMoveIndex = i;
+          break;
+        }
+      }
+
+      // If the player hasn't moved yet, return initial time
+      if (lastPlayerMoveIndex === -1) return initialTime;
+
+      // Use stored timeLeft if available (accurate value from the server)
+      const lastPlayerMove = moves[lastPlayerMoveIndex];
+      if (lastPlayerMove?.timeLeft != null) {
+        return Math.max(0, lastPlayerMove.timeLeft);
+      }
+
+      // Fallback: compute from timeSpent for older games without timeLeft
       let timeRemaining = initialTime;
-
-      // Calculate time for moves up to current index
       for (let i = 0; i <= currentMoveIndex; i++) {
         const move = moves[i];
         if (!move) continue;
 
-        // Check if this move was made by the specified player
         const isWhiteMove = i % 2 === 0;
         const isPlayerMove =
           (player === 'white' && isWhiteMove) || (player === 'black' && !isWhiteMove);
 
         if (isPlayerMove && move.timeSpent) {
           timeRemaining -= move.timeSpent;
-          // Add increment if available
           if (incrementTime) {
             timeRemaining += incrementTime;
           }

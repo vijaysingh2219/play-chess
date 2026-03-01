@@ -276,6 +276,12 @@ model Friendship {
 
   createdAt  DateTime  @default(now()) @map("created_at")
   acceptedAt DateTime? @map("accepted_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+  declinedAt DateTime? @map("declined_at")
+  blockedAt  DateTime? @map("blocked_at")
+
+  declineCount Int     @default(0) @map("decline_count")
+  blockedBy    String? @map("blocked_by")
 
   @@unique([senderId, receiverId])
   @@index([senderId])

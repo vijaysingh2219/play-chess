@@ -27,6 +27,7 @@
     "lucide-react": "catalog:web",
     "next": "catalog:web",
     "next-themes": "catalog:web",
+    "pg": "catalog:core",
     "qrcode": "catalog:web",
     "react": "catalog:core",
     "react-chessboard": "catalog:chess",

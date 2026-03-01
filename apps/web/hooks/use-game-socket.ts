@@ -17,7 +17,6 @@ import { useSocket } from './use-socket';
 interface UseGameSocketOptions {
   gameId: string;
   onGameEnded?: (payload: GameEndedPayload) => void;
-  onDrawOffered?: () => void;
   onBothPlayersReady?: () => void;
 }
 
@@ -32,6 +31,7 @@ interface UseGameSocketReturn {
     white: number;
     black: number;
   };
+  drawOffered: boolean;
   waitingForOpponent: boolean;
   makeMove: (from: string, to: string, promotion?: 'q' | 'r' | 'b' | 'n') => void;
   resign: () => void;
@@ -42,7 +42,7 @@ interface UseGameSocketReturn {
 }
 
 export function useGameSocket(options: UseGameSocketOptions): UseGameSocketReturn {
-  const { gameId, onGameEnded, onDrawOffered, onBothPlayersReady } = options;
+  const { gameId, onGameEnded, onBothPlayersReady } = options;
   const { socket, isAuthenticated, latency } = useSocket({ autoConnect: true });
 
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -51,6 +51,7 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<GameError | null>(null);
   const [timeLeft, setTimeLeft] = useState({ white: 0, black: 0 });
+  const [drawOffered, setDrawOffered] = useState(false);
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
 
   // Track if game is joined to prevent duplicate joins
@@ -58,8 +59,18 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
   const hasMarkedReadyRef = useRef(false);
   const boardReadyRef = useRef(false);
 
-  // Client-side timer for active player's clock
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Refs for callbacks to avoid stale closures and constant re-registration
+  const onGameEndedRef = useRef(onGameEnded);
+  const onBothPlayersReadyRef = useRef(onBothPlayersReady);
+
+  // Keep callback refs up to date
+  useEffect(() => {
+    onGameEndedRef.current = onGameEnded;
+  }, [onGameEnded]);
+
+  useEffect(() => {
+    onBothPlayersReadyRef.current = onBothPlayersReady;
+  }, [onBothPlayersReady]);
 
   /**
    * Initialize sound manager
@@ -177,6 +188,9 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
 
   /**
    * Setup event listeners
+   *
+   * Uses functional state updates (prev => ...) to avoid stale closure on gameState.
+   * Uses refs for callbacks to prevent constant listener re-registration.
    */
   useEffect(() => {
     if (!socket) {
@@ -199,6 +213,12 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
 
       // Mark board as ready after first render
       boardReadyRef.current = true;
+
+      // For fresh games (no moves yet), don't start the clock until
+      // both players are ready (signaled via GAME_SYNC)
+      if (payload.game.moves.length === 0) {
+        setWaitingForOpponent(true);
+      }
     };
 
     const handleWaitingForOpponent = () => {
@@ -220,7 +240,7 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
       setWaitingForOpponent(false);
       setIsLoading(false);
 
-      onBothPlayersReady?.();
+      onBothPlayersReadyRef.current?.();
     };
 
     const handleMoveAccepted = (payload: MoveAcceptedPayload) => {
@@ -239,20 +259,24 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
         SoundManager.play('move');
       }
 
-      if (gameState) {
-        setGameState({
-          ...gameState,
+      // Use functional update to avoid stale closure on gameState
+      setGameState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
           currentFen: payload.gameState.currentFen,
           currentTurn: payload.gameState.currentTurn,
-          moves: [...gameState.moves, payload.move],
-        });
-      }
+          moves: [...prev.moves, payload.move],
+        };
+      });
 
       setTimeLeft({
         white: payload.gameState.whiteTimeLeft,
         black: payload.gameState.blackTimeLeft,
       });
 
+      // Reset draw offer when a move is made
+      setDrawOffered(false);
       setCanMove(false);
     };
 
@@ -272,32 +296,52 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
         SoundManager.play('move');
       }
 
-      if (gameState) {
-        setGameState({
-          ...gameState,
+      // Use functional update to avoid stale closure on gameState
+      setGameState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
           currentFen: payload.gameState.currentFen,
           currentTurn: payload.gameState.currentTurn,
-          moves: [...gameState.moves, payload.move],
-        });
-      }
+          moves: [...prev.moves, payload.move],
+        };
+      });
 
       setTimeLeft({
         white: payload.gameState.whiteTimeLeft,
         black: payload.gameState.blackTimeLeft,
       });
 
+      // Reset draw offer when opponent moves
+      setDrawOffered(false);
       setCanMove(true);
     };
 
     const handleGameEnded = (payload: GameEndedPayload) => {
       console.log('[Game] Game ended:', payload);
+
+      // Update gameState status so the internal timer stops
+      setGameState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: 'COMPLETED' as GameState['status'],
+        };
+      });
+
       setCanMove(false);
-      onGameEnded?.(payload);
+      setDrawOffered(false);
+      onGameEndedRef.current?.(payload);
     };
 
     const handleDrawOffer = () => {
       console.log('[Game] Draw offered by opponent');
-      onDrawOffered?.();
+      setDrawOffered(true);
+    };
+
+    const handleDrawDeclined = () => {
+      console.log('[Game] Draw declined by opponent');
+      setDrawOffered(false);
     };
 
     const handleInvalidMove = (error: GameError) => {
@@ -319,6 +363,7 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
     socket.on(SOCKET_EVENTS.OPPONENT_MOVED, handleOpponentMoved);
     socket.on(SOCKET_EVENTS.GAME_ENDED, handleGameEnded);
     socket.on(SOCKET_EVENTS.DRAW_OFFER, handleDrawOffer);
+    socket.on(SOCKET_EVENTS.DRAW_DECLINED, handleDrawDeclined);
     socket.on(SOCKET_EVENTS.INVALID_MOVE, handleInvalidMove);
     socket.on(SOCKET_EVENTS.GAME_ERROR, handleGameError);
 
@@ -331,10 +376,11 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
       socket.off(SOCKET_EVENTS.OPPONENT_MOVED, handleOpponentMoved);
       socket.off(SOCKET_EVENTS.GAME_ENDED, handleGameEnded);
       socket.off(SOCKET_EVENTS.DRAW_OFFER, handleDrawOffer);
+      socket.off(SOCKET_EVENTS.DRAW_DECLINED, handleDrawDeclined);
       socket.off(SOCKET_EVENTS.INVALID_MOVE, handleInvalidMove);
       socket.off(SOCKET_EVENTS.GAME_ERROR, handleGameError);
     };
-  }, [socket, gameId, gameState, onGameEnded, onDrawOffered, onBothPlayersReady]);
+  }, [socket, gameId]);
 
   /**
    * Join game on mount
@@ -377,51 +423,6 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
     setCanMove(isYourTurn && gameState.status === 'ONGOING');
   }, [gameState, yourColor]);
 
-  /**
-   * Client-side timer countdown
-   *
-   * Only count down the ACTIVE player's clock (whose turn it is)
-   * This runs locally for smooth display
-   * Server time is authoritative and syncs on each move
-   */
-  useEffect(() => {
-    if (!gameState || gameState.status !== 'ONGOING' || waitingForOpponent) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-
-    const activeColor = gameState.currentTurn === 'w' ? 'white' : 'black';
-
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        const newTime = {
-          ...prev,
-          [activeColor]: Math.max(0, prev[activeColor] - 100),
-        };
-
-        // Check for timeout
-        if (newTime[activeColor] <= 0) {
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-        }
-
-        return newTime;
-      });
-    }, 100);
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [gameState?.currentTurn, gameState?.status, waitingForOpponent, gameState]);
-
   return {
     gameState,
     yourColor,
@@ -430,6 +431,7 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
     error,
     latency,
     timeLeft,
+    drawOffered,
     waitingForOpponent,
     makeMove,
     resign,

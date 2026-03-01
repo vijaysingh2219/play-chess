@@ -8,6 +8,7 @@ import { Button } from '@workspace/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@workspace/ui/components/card';
 import { Separator } from '@workspace/ui/components/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
+import { formatTimeControlDisplay } from '@workspace/utils/helpers';
 import { Check, Clock, Swords, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -203,7 +204,7 @@ function ChallengeCard({
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Time Control</span>
-            <Badge variant="outline">{challenge.timeControl}</Badge>
+            <Badge variant="outline">{formatTimeControlDisplay(challenge.timeControl)}</Badge>
           </div>
 
           {challenge.message && (

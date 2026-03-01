@@ -1,5 +1,6 @@
 'use client';
 
+import { useSession } from '@workspace/auth/client';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { ClientToServerEvents, ServerToClientEvents } from '@workspace/utils/types';
 import { useRouter } from 'next/navigation';
@@ -28,6 +29,8 @@ interface UseSocketReturn {
 export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
   const { autoConnect = true, onConnect, onDisconnect, onError } = options;
 
+  const session = useSession();
+  const hasSession = !!session.data?.user;
   const router = useRouter();
   const [isConnected, setIsConnected] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -148,17 +151,22 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
   }, [onConnect, onDisconnect, onError, disconnect, startPingCheck, stopPingCheck, router]);
 
   /**
-   * Auto-connect on mount
+   * Auto-connect on mount (only when user has an active session)
    */
   useEffect(() => {
-    if (autoConnect) {
+    if (autoConnect && hasSession) {
       connect();
+    }
+
+    // Disconnect if the session becomes invalid
+    if (!hasSession && socketRef.current) {
+      disconnect();
     }
 
     return () => {
       disconnect();
     };
-  }, [autoConnect, connect, disconnect]);
+  }, [autoConnect, hasSession, connect, disconnect]);
 
   return {
     socket: socketRef.current,

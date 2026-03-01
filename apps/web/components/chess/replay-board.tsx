@@ -57,7 +57,8 @@ export function ReplayBoard({ className, gameId }: { className?: string; gameId:
     getCurrentTurn,
   } = useReplayControls({
     moves: moveList,
-    initialTime: data?.initialTime,
+    initialTime: data?.initialTime ? data.initialTime * 1000 : undefined,
+    incrementTime: data?.incrementTime ? data.incrementTime * 1000 : undefined,
     playInterval: 500,
   });
 

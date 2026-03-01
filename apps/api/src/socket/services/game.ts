@@ -300,7 +300,20 @@ class GameService {
     from: string,
     to: string,
     promotion?: 'q' | 'r' | 'b' | 'n',
-  ): Promise<{ moveData: MoveData; gameState: GameState }> {
+  ): Promise<{
+    moveData: MoveData;
+    gameState: GameState;
+    gameEndInfo?: {
+      winner: Winner;
+      reason: GameTerminationReason;
+      ratings: {
+        whiteChange: number;
+        blackChange: number;
+        whiteNewRating: number;
+        blackNewRating: number;
+      };
+    };
+  }> {
     // Check if game is waiting for ready
     const readyState = await this.getReadyState(gameId);
     if (readyState && (!readyState.whiteReady || !readyState.blackReady)) {
@@ -430,15 +443,17 @@ class GameService {
       );
 
       // Check for game end conditions
-      await this.checkGameEndConditions(gameId, chess);
+      const gameEndInfo = await this.checkGameEndConditions(gameId, chess);
 
-      // Cancel old timeout and schedule new one for opponent
-      await this.cancelTimeoutJob(gameId, userId);
-
-      const opponentId = isWhite ? gameState.blackPlayerId : gameState.whitePlayerId;
-      const opponentTimeLeft = isWhite ? gameState.blackTimeLeft : gameState.whiteTimeLeft;
-
-      await this.scheduleTimeoutJob(gameId, opponentId, chess.turn(), opponentTimeLeft);
+      // Only manage timeouts if game is still ongoing
+      if (!gameEndInfo) {
+        await this.cancelTimeoutJob(gameId, userId);
+        const opponentId = isWhite ? gameState.blackPlayerId : gameState.whitePlayerId;
+        const opponentTimeLeft = isWhite ? gameState.blackTimeLeft : gameState.whiteTimeLeft;
+        await this.scheduleTimeoutJob(gameId, opponentId, chess.turn(), opponentTimeLeft);
+      } else {
+        await this.cancelTimeoutJob(gameId, userId);
+      }
 
       return {
         moveData,
@@ -447,6 +462,7 @@ class GameService {
           whiteTimeLeft: gameState.whiteTimeLeft,
           blackTimeLeft: gameState.blackTimeLeft,
         },
+        gameEndInfo: gameEndInfo ?? undefined,
       };
     } finally {
       await this.releaseLock(gameId);
@@ -624,8 +640,21 @@ class GameService {
 
   /**
    * Check if game has ended
+   * Returns game end info if the game ended, null otherwise
    */
-  private async checkGameEndConditions(gameId: string, chess: Chess): Promise<void> {
+  private async checkGameEndConditions(
+    gameId: string,
+    chess: Chess,
+  ): Promise<{
+    winner: Winner;
+    reason: GameTerminationReason;
+    ratings: {
+      whiteChange: number;
+      blackChange: number;
+      whiteNewRating: number;
+      blackNewRating: number;
+    };
+  } | null> {
     let winner: Winner | null = null;
     let reason: GameTerminationReason | null = null;
 
@@ -647,8 +676,11 @@ class GameService {
     }
 
     if (winner && reason) {
-      await this.endGame(gameId, winner, reason);
+      const { ratings } = await this.endGame(gameId, winner, reason);
+      return { winner, reason, ratings };
     }
+
+    return null;
   }
 
   /**

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRemoveFriend } from '@/hooks/mutations/friends';
+import { useBlockFriend, useRemoveFriend } from '@/hooks/mutations/friends';
 import { useFriends } from '@/hooks/queries/friends';
 import { useSubscription } from '@/hooks/subscriptions';
 import { useRequiredAuthUser } from '@/hooks/use-auth-user';
@@ -39,7 +39,7 @@ import {
   TooltipTrigger,
 } from '@workspace/ui/components/tooltip';
 import { formatDate } from '@workspace/utils/helpers';
-import { Swords, User, UserX } from 'lucide-react';
+import { Ban, Swords, User, UserX } from 'lucide-react';
 import { useRouter } from 'next/dist/client/components/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -61,6 +61,7 @@ const Friends = ({ userId }: { userId: string }) => {
   const router = useRouter();
   const { data: friends } = useFriends(userId);
   const removeFriendMutation = useRemoveFriend(userId);
+  const blockFriendMutation = useBlockFriend(userId);
   const { user } = useRequiredAuthUser();
   const { data: subscription } = useSubscription(userId);
   const { sendChallenge } = useChallenge();
@@ -92,7 +93,7 @@ const Friends = ({ userId }: { userId: string }) => {
     const timeControl = timeControls.find((tc) => tc.key === selectedTimeControl);
     if (!timeControl) return;
 
-    await sendChallenge(selectedFriendId, `${timeControl.timer}+${timeControl.increment}`);
+    await sendChallenge(selectedFriendId, timeControl.key);
 
     setChallengeDialogOpen(false);
     setSelectedFriendId(null);
@@ -104,6 +105,10 @@ const Friends = ({ userId }: { userId: string }) => {
 
   const handleRemoveFriend = (friendId: string) => {
     removeFriendMutation.mutate(friendId);
+  };
+
+  const handleBlockFriend = (friendId: string) => {
+    blockFriendMutation.mutate(friendId);
   };
 
   return (
@@ -119,6 +124,13 @@ const Friends = ({ userId }: { userId: string }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
+          {friends?.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+                No friends yet
+              </TableCell>
+            </TableRow>
+          )}
           {friends?.map((friend: Friend) => (
             <TableRow key={friend.id}>
               <TableCell>
@@ -159,18 +171,32 @@ const Friends = ({ userId }: { userId: string }) => {
                   </Tooltip>
 
                   {sessionUserId === userId && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveFriend(friend.id)}
-                        >
-                          <UserX className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Remove friend</TooltipContent>
-                    </Tooltip>
+                    <>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveFriend(friend.id)}
+                          >
+                            <UserX className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Remove friend</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleBlockFriend(friend.id)}
+                          >
+                            <Ban className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Block user</TooltipContent>
+                      </Tooltip>
+                    </>
                   )}
                 </div>
               </TableCell>

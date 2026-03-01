@@ -1,6 +1,6 @@
 'use client';
 
-import { useRespondToRequest } from '@/hooks/mutations/friends';
+import { useBlockFriend, useRespondToRequest } from '@/hooks/mutations/friends';
 import { useRequests } from '@/hooks/queries/friends';
 import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
@@ -19,7 +19,7 @@ import {
   TooltipTrigger,
 } from '@workspace/ui/components/tooltip';
 import { formatDate } from '@workspace/utils/helpers';
-import { Check, User, X } from 'lucide-react';
+import { Ban, Check, User, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Request {
@@ -38,6 +38,7 @@ interface Request {
 const FriendRequests = ({ userId }: { userId: string }) => {
   const { data: requests } = useRequests(userId, 'received');
   const respond = useRespondToRequest(userId);
+  const blockFriend = useBlockFriend(userId);
   const router = useRouter();
 
   const handleViewProfile = (username: string) => {
@@ -57,6 +58,13 @@ const FriendRequests = ({ userId }: { userId: string }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
+          {requests?.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+                No friend requests
+              </TableCell>
+            </TableRow>
+          )}
           {requests?.map((req: Request) => (
             <TableRow key={req.id}>
               <TableCell>
@@ -92,6 +100,14 @@ const FriendRequests = ({ userId }: { userId: string }) => {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Reject</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={() => blockFriend.mutate(req.id)}>
+                      <Ban className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Block user</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>

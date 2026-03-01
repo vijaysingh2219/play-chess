@@ -8,10 +8,14 @@ export const queryKeys = {
   // Friends & Requests
   friends: {
     list: (userId: string) => ['friends', userId] as const,
+    status: (userId: string) => ['friends', 'status', userId] as const,
   },
   requests: {
     received: ['requests', 'received'] as const,
     sent: ['requests', 'sent'] as const,
+  },
+  blocked: {
+    list: ['blocked'] as const,
   },
 
   // Games

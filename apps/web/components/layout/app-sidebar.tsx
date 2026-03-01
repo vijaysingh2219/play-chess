@@ -37,7 +37,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: subscription } = useSubscription(user?.id);
   const { showShortcuts } = useKeyboardShortcuts();
   const challengesCount = useChallengesCount();
-  if (!user) return null;
 
   const isSidebarExpanded = state === 'expanded';
 
@@ -48,34 +47,40 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       href: '/challenges',
       icon: Swords,
     },
-    {
-      title: 'Stats',
-      href: `/member/${user.username}/stats`,
-      icon: BadgeCheck,
-    },
-  ];
-  const accountItems = [
-    {
-      label: 'Public Profile',
-      href: `/member/${user.username}`,
-      icon: User2,
-    },
-    ...(subscription
+    ...(user
       ? [
           {
-            label: 'Manage Membership',
-            href: '/membership',
-            icon: Sparkles,
+            title: 'Stats',
+            href: `/member/${user.username}/stats`,
+            icon: BadgeCheck,
           },
         ]
-      : [
-          {
-            label: 'Upgrade to Pro',
-            href: '/membership',
-            icon: Sparkles,
-          },
-        ]),
+      : []),
   ];
+  const accountItems = user
+    ? [
+        {
+          label: 'Public Profile',
+          href: `/member/${user.username}`,
+          icon: User2,
+        },
+        ...(subscription
+          ? [
+              {
+                label: 'Manage Membership',
+                href: '/membership',
+                icon: Sparkles,
+              },
+            ]
+          : [
+              {
+                label: 'Upgrade to Pro',
+                href: '/membership',
+                icon: Sparkles,
+              },
+            ]),
+      ]
+    : [];
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -117,23 +122,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Account</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {accountItems.map((item) => (
-                <SidebarMenuItem key={item.label}>
-                  <SidebarMenuButton tooltip={item.label} asChild>
-                    <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {accountItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Account</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {accountItems.map((item) => (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton tooltip={item.label} asChild>
+                      <Link href={item.href}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         {isAuthenticated ? (

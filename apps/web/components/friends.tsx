@@ -92,7 +92,7 @@ const Friends = ({ userId }: { userId: string }) => {
     const timeControl = timeControls.find((tc) => tc.key === selectedTimeControl);
     if (!timeControl) return;
 
-    await sendChallenge(selectedFriendId, `${timeControl.timer}+${timeControl.increment}`);
+    await sendChallenge(selectedFriendId, timeControl.key);
 
     setChallengeDialogOpen(false);
     setSelectedFriendId(null);

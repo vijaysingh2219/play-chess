@@ -232,6 +232,9 @@ export async function POST(req: Request) {
   const { identifier } = parsed.data;
   const senderId = session.user.id;
 
+  const COOLDOWN_DAYS = 3;
+  const MAX_DECLINE_COUNT = 3;
+
   try {
     const targetUser = await prisma.user.findFirst({
       where: {
@@ -247,21 +250,87 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'You cannot add yourself' }, { status: 400 });
     }
 
-    // Check for existing request in either direction
+    // Check for existing friendship in either direction (all statuses)
     const existing = await prisma.friendship.findFirst({
       where: {
         OR: [
           { senderId, receiverId: targetUser.id },
           { senderId: targetUser.id, receiverId: senderId },
         ],
-        status: {
-          in: ['PENDING', 'ACCEPTED'], // Avoid duplicates
-        },
       },
     });
 
     if (existing) {
-      return NextResponse.json({ error: 'Friend request already exists' }, { status: 400 });
+      // Already friends or pending
+      if (existing.status === 'PENDING' || existing.status === 'ACCEPTED') {
+        return NextResponse.json({ error: 'Friend request already exists' }, { status: 400 });
+      }
+
+      // Blocked — never allow
+      if (existing.status === 'BLOCKED') {
+        return NextResponse.json(
+          { error: 'You cannot send a request to this user' },
+          { status: 403 },
+        );
+      }
+
+      // Declined — check cooldown and decline count
+      if (existing.status === 'DECLINED') {
+        // Auto-blocked after too many declines
+        if (existing.declineCount >= MAX_DECLINE_COUNT) {
+          return NextResponse.json(
+            { error: 'You cannot send a request to this user' },
+            { status: 403 },
+          );
+        }
+
+        // Cooldown period
+        if (existing.declinedAt) {
+          const cooldownEnd = new Date(
+            existing.declinedAt.getTime() + COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
+          );
+          if (cooldownEnd > new Date()) {
+            return NextResponse.json(
+              {
+                error: `Please wait before re-sending a request`,
+                retryAfter: cooldownEnd.toISOString(),
+              },
+              { status: 429 },
+            );
+          }
+        }
+
+        // Cooldown passed — reuse existing record, reset to PENDING
+        const updated = await prisma.friendship.update({
+          where: { id: existing.id },
+          data: {
+            status: 'PENDING',
+            declinedAt: null,
+            // Keep senderId as is if same direction, otherwise we need to handle direction
+            // Since the unique constraint is on [senderId, receiverId], we update in place
+          },
+        });
+
+        return NextResponse.json({
+          message: 'Friend request sent',
+          request: updated,
+        });
+      }
+
+      // CANCELLED — reuse existing record
+      if (existing.status === 'CANCELLED') {
+        const updated = await prisma.friendship.update({
+          where: { id: existing.id },
+          data: {
+            status: 'PENDING',
+          },
+        });
+
+        return NextResponse.json({
+          message: 'Friend request sent',
+          request: updated,
+        });
+      }
     }
 
     const newRequest = await prisma.friendship.create({

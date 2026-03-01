@@ -58,7 +58,6 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
   const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
   const [gameOver, setGameOver] = useState(false);
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
-  const [drawOffered, setDrawOffered] = useState(false);
   const { showShortcuts, setContext } = useKeyboardShortcuts();
 
   // Playback state for navigating through game history
@@ -75,6 +74,8 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
     yourColor,
     canMove,
     timeLeft,
+    drawOffered,
+    waitingForOpponent,
     makeMove,
     resign,
     offerDraw,
@@ -83,7 +84,6 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
     latency,
   } = useGameSocket({
     gameId: gameId,
-    onDrawOffered: () => setDrawOffered(true),
     onGameEnded: (payload) => {
       setGameResult(payload);
       setGameOver(true);
@@ -98,10 +98,13 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
 
   const isGameActive = gameState?.status === 'ONGOING' && gameResult === null;
 
+  // Only start the display clock after both players are ready (waitingForOpponent === false)
+  const isClockRunning = isGameActive && !waitingForOpponent;
+
   const displayTime = useGameClock({
     timeLeft,
     currentTurn: gameState?.currentTurn,
-    isGameActive,
+    isGameActive: isClockRunning,
   });
 
   const isPlayersTurn = useCallback(
@@ -391,18 +394,22 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
       />
       <GameOverDialog
         isOpen={gameOver}
-        result={{
-          winner: gameResult?.winner as Winner,
-          reason: gameResult?.reason as GameTerminationReason,
-          whiteRating: {
-            change: gameResult?.eloChanges.white as number,
-            new: gameResult?.newRatings.white || 0,
-          },
-          blackRating: {
-            change: gameResult?.eloChanges.black as number,
-            new: gameResult?.newRatings.black || 0,
-          },
-        }}
+        result={
+          gameResult
+            ? {
+                winner: gameResult.winner,
+                reason: gameResult.reason,
+                whiteRating: {
+                  change: gameResult.eloChanges.white,
+                  new: gameResult.newRatings.white || 0,
+                },
+                blackRating: {
+                  change: gameResult.eloChanges.black,
+                  new: gameResult.newRatings.black || 0,
+                },
+              }
+            : null
+        }
         currentPlayer={{
           id: user?.id || '',
           name: user?.name || '',
