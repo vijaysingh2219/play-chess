@@ -4,6 +4,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[**▶ Watch Demo**](https://www.youtube.com/watch?v=rusrUAPiNm4)
+
 ## Features
 
 - **Real-Time Multiplayer** — Play against friends or other players online with smooth, real-time gameplay powered by Socket.IO
