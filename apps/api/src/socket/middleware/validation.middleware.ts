@@ -67,8 +67,8 @@ export function createHandler<T extends z.ZodSchema>(
 ): (rawPayload: unknown) => Promise<void> {
   return async (rawPayload: unknown) => {
     try {
-      const validated = validatePayload(schema, rawPayload);
-      await handler(validated);
+      const validated = validatePayload(schema as z.ZodSchema<z.infer<T>>, rawPayload);
+      await handler(validated as z.infer<T>);
     } catch (error) {
       handleSocketError(socket, error);
     }

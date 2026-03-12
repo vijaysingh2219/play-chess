@@ -14,151 +14,153 @@ import {
   resetPasswordRateLimiter,
   verifyEmailRateLimiter,
 } from '@workspace/rate-limit';
-import { betterAuth } from 'better-auth';
+import { betterAuth, BetterAuthOptions } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { twoFactor, username } from 'better-auth/plugins';
 import { generateUniqueUsername } from './helpers';
 
-export const auth: ReturnType<typeof betterAuth> = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL as string,
-  database: prismaAdapter(prisma, {
-    provider: 'postgresql',
-  }),
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: true,
-    sendResetPassword: async ({ user, url }) => {
-      const { data, success, error } = resetPasswordSchema.safeParse({
-        name: user.name,
-        resetUrl: url,
-      });
-      if (error || !success) {
-        throw new Error('Failed to send password reset email');
-      }
-
-      const { success: rateLimitSuccess } = await resetPasswordRateLimiter.limit(user.email);
-      if (!rateLimitSuccess) {
-        console.log('Rate limit exceeded. Please try again later.');
-        return;
-      }
-
-      const emailTemplate = getTemplate('reset-password');
-      await sendEmail({
-        to: user.email,
-        subject: emailTemplate.subject,
-        react: emailTemplate.render({
-          name: data.name,
-          resetUrl: data.resetUrl,
-        }),
-      });
-    },
-  },
-  emailVerification: {
-    sendOnSignUp: true,
-    autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }) => {
-      const { data, success, error } = verifyEmailSchema.safeParse({
-        email: user.email,
-        name: user.name,
-        verificationUrl: url,
-      });
-      if (error || !success) {
-        throw new Error('Failed to send verification email');
-      }
-
-      const { success: rateLimitSuccess } = await verifyEmailRateLimiter.limit(user.email);
-      if (!rateLimitSuccess) {
-        console.log('Rate limit exceeded. Please try again later.');
-        return;
-      }
-
-      const emailTemplate = getTemplate('verify-email');
-      await sendEmail({
-        to: user.email,
-        subject: emailTemplate.subject,
-        react: emailTemplate.render({
-          name: data.name,
-          email: data.email,
-          verificationUrl: data.verificationUrl,
-        }),
-      });
-    },
-  },
-  user: {
-    changeEmail: {
+export const auth: ReturnType<typeof betterAuth<BetterAuthOptions>> = betterAuth<BetterAuthOptions>(
+  {
+    baseURL: process.env.BETTER_AUTH_URL as string,
+    database: prismaAdapter(prisma, {
+      provider: 'postgresql',
+    }),
+    emailAndPassword: {
       enabled: true,
-      sendChangeEmailVerification: async ({ user, newEmail, url }) => {
-        const { data, success, error } = changeEmailSchema.safeParse({
-          currentEmail: user.email,
-          newEmail,
+      requireEmailVerification: true,
+      sendResetPassword: async ({ user, url }) => {
+        const { data, success, error } = resetPasswordSchema.safeParse({
           name: user.name,
-          verificationUrl: url,
+          resetUrl: url,
         });
         if (error || !success) {
-          throw new Error('Failed to send email change verification');
+          throw new Error('Failed to send password reset email');
         }
 
-        const { success: rateLimitSuccess } = await changeEmailRateLimiter.limit(user.email);
+        const { success: rateLimitSuccess } = await resetPasswordRateLimiter.limit(user.email);
         if (!rateLimitSuccess) {
           console.log('Rate limit exceeded. Please try again later.');
           return;
         }
 
-        const emailTemplate = getTemplate('change-email');
+        const emailTemplate = getTemplate('reset-password');
         await sendEmail({
-          to: user.email, // Send to current email
+          to: user.email,
           subject: emailTemplate.subject,
           react: emailTemplate.render({
             name: data.name,
-            currentEmail: data.currentEmail,
-            newEmail: data.newEmail,
+            resetUrl: data.resetUrl,
+          }),
+        });
+      },
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        const { data, success, error } = verifyEmailSchema.safeParse({
+          email: user.email,
+          name: user.name,
+          verificationUrl: url,
+        });
+        if (error || !success) {
+          throw new Error('Failed to send verification email');
+        }
+
+        const { success: rateLimitSuccess } = await verifyEmailRateLimiter.limit(user.email);
+        if (!rateLimitSuccess) {
+          console.log('Rate limit exceeded. Please try again later.');
+          return;
+        }
+
+        const emailTemplate = getTemplate('verify-email');
+        await sendEmail({
+          to: user.email,
+          subject: emailTemplate.subject,
+          react: emailTemplate.render({
+            name: data.name,
+            email: data.email,
             verificationUrl: data.verificationUrl,
           }),
         });
       },
     },
-    deleteUser: {
-      enabled: true,
-    },
-  },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      mapProfileToUser: async (profile) => {
-        // Validate required fields
-        if (!profile.email) {
-          throw new Error('Email is required from Google profile');
-        }
-        const uniqueUsername = await generateUniqueUsername(profile.email);
-        return {
-          name: profile.name || uniqueUsername,
-          email: profile.email,
-          username: uniqueUsername,
-          displayUsername: uniqueUsername,
-        };
-      },
-    },
-  },
-  account: {
-    accountLinking: {
-      enabled: true,
-      trustedProviders: ['google'],
-      updateUserInfoOnLink: true,
-    },
-  },
-  plugins: [
-    username(),
-    stripe({
-      stripeClient: getStripe(),
-      stripeWebhookSecret: WEBHOOK_SECRET,
-      subscription: {
+    user: {
+      changeEmail: {
         enabled: true,
-        plans: PLANS,
+        sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+          const { data, success, error } = changeEmailSchema.safeParse({
+            currentEmail: user.email,
+            newEmail,
+            name: user.name,
+            verificationUrl: url,
+          });
+          if (error || !success) {
+            throw new Error('Failed to send email change confirmation');
+          }
+
+          const { success: rateLimitSuccess } = await changeEmailRateLimiter.limit(user.email);
+          if (!rateLimitSuccess) {
+            console.log('Rate limit exceeded. Please try again later.');
+            return;
+          }
+
+          const emailTemplate = getTemplate('change-email');
+          await sendEmail({
+            to: user.email, // Send to current email
+            subject: emailTemplate.subject,
+            react: emailTemplate.render({
+              name: data.name,
+              currentEmail: data.currentEmail,
+              newEmail: data.newEmail,
+              verificationUrl: data.verificationUrl,
+            }),
+          });
+        },
       },
-    }),
-    twoFactor({
-      issuer: 'PlayChess',
-    }),
-  ],
-});
+      deleteUser: {
+        enabled: true,
+      },
+    },
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID as string,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+        mapProfileToUser: async (profile) => {
+          // Validate required fields
+          if (!profile.email) {
+            throw new Error('Email is required from Google profile');
+          }
+          const uniqueUsername = await generateUniqueUsername(profile.email);
+          return {
+            name: profile.name || uniqueUsername,
+            email: profile.email,
+            username: uniqueUsername,
+            displayUsername: uniqueUsername,
+          };
+        },
+      },
+    },
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ['google'],
+        updateUserInfoOnLink: true,
+      },
+    },
+    plugins: [
+      username(),
+      stripe({
+        stripeClient: getStripe(),
+        stripeWebhookSecret: WEBHOOK_SECRET,
+        subscription: {
+          enabled: true,
+          plans: PLANS,
+        },
+      }),
+      twoFactor({
+        issuer: 'PlayChess',
+      }),
+    ],
+  },
+);

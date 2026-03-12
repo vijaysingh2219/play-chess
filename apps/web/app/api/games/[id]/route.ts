@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const parsed = gameParamsSchema.safeParse({ id });
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.errors.map((e) => e.message).join(', ') },
+      { error: parsed.error.issues.map((e) => e.message).join(', ') },
       { status: 400 },
     );
   }

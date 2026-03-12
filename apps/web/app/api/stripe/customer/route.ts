@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ stripeCustomerId: customer.id }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid request', issues: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request', issues: error.issues }, { status: 400 });
     }
 
     console.error('CreateStripeCustomerError:', error);
