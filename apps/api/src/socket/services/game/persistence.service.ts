@@ -7,8 +7,8 @@
  * - Updating game status
  */
 
+import { MoveData } from '@workspace/contracts';
 import { GameTerminationReason, prisma, Winner } from '@workspace/db';
-import { MoveData } from '@workspace/utils/types';
 
 /**
  * Save a move to the database

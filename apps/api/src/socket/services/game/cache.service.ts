@@ -8,7 +8,7 @@
  * - Cache invalidation
  */
 
-import { ActiveGameCache, GameState } from '@workspace/utils/types';
+import { ActiveGameCache, GameState } from '@workspace/contracts';
 import { Chess } from 'chess.js';
 import { redis } from '../../lib/redis';
 

@@ -6,6 +6,8 @@
 
 [**▶ Watch Demo**](https://www.youtube.com/watch?v=rusrUAPiNm4)
 
+Built with [build-elevate](https://github.com/vijaysingh2219/build-elevate) - A production-grade full-stack starter.
+
 ## Features
 
 - **Real-Time Multiplayer** — Play against friends or other players online with smooth, real-time gameplay powered by Socket.IO
@@ -60,9 +62,9 @@ This is a full-stack monorepo built with [Turborepo](https://turborepo.org/), co
 - **typescript-config** — Shared TypeScript compiler options
 - **jest-presets** — Testing configuration for Node and React
 
-### Built With
+## Built With
 
-[Next.js](https://nextjs.org/) · [Express](https://expressjs.com/) · [Socket.IO](https://socket.io/) · [shadcn/ui](https://ui.shadcn.com/) · [Tailwind CSS](https://tailwindcss.com/) · [Turborepo](https://turbo.build/) · [TypeScript](https://www.typescriptlang.org/) · [pnpm](https://pnpm.io/) · [Prisma](https://www.prisma.io/) · [PostgreSQL](https://www.postgresql.org/) · [Better Auth](https://www.better-auth.com/) · [Stripe](https://stripe.com/) · [React Email](https://react.email/) · [Resend](https://resend.com/) · [Docker](https://www.docker.com/)
+[Express](https://expressjs.com/) · [Next.js 16](https://nextjs.org/) · [Socket.IO](https://socket.io/) · [shadcn/ui](https://ui.shadcn.com/) · [Tailwind CSS](https://tailwindcss.com/) · [Turborepo](https://turbo.build/) · [TypeScript](https://www.typescriptlang.org/) · [pnpm](https://pnpm.io/) · [ESLint](https://eslint.org/) · [Prettier](https://prettier.io/) · [Vitest](https://vitest.dev/) · [GitHub Actions](https://github.com/features/actions) · [Prisma](https://www.prisma.io/) · [PostgreSQL](https://www.postgresql.org/) · [Better Auth](https://www.better-auth.com/) · [Stripe](https://stripe.com/) · [React Email](https://react.email/) · [Resend](https://resend.com/) · [Tanstack Query](https://tanstack.com/query/latest) · [Docker](https://www.docker.com/)
 
 ## Getting Started
 
@@ -72,116 +74,128 @@ This is a full-stack monorepo built with [Turborepo](https://turborepo.org/), co
 - pnpm
 - PostgreSQL database
 
-### Installation (Local)
+### Setup
 
-1. Clone the repository:
+#### 1. Install dependencies
 
-   ```bash
-   git clone https://github.com/vijaysingh2219/chess.git
-   cd chess
-   ```
+```bash
+pnpm install
+```
 
-2. Copy all example environment files and fill in the required values:
+#### 2. Configure environment variables
 
-   ```bash
-   # Linux/macOS
-   find . -name ".env.example" -exec sh -c 'cp "$0" "${0%.example}"' {} \;
-   ```
+- Copy `.env.example` files to `.env.local` or `.env` in respective packages
+- Update database connection strings and API keys
 
-   Then open the copied `.env` files in each folder and fill in the required values.
+#### 3. Generate Prisma client and run migrations
 
-3. Install dependencies:
+```bash
+cd packages/db
+pnpm db:generate
+pnpm db:migrate
+cd ../..
+```
 
-   ```bash
-   pnpm install
-   ```
+#### 4. Start development server
 
-4. Generate Prisma client and run migrations:
+```bash
+pnpm dev
+```
 
-   ```bash
-   cd packages/db
-   pnpm db:generate
-   pnpm db:migrate
-   cd ../..
-   ```
+## Available Scripts
 
-5. Start the development server:
+- `pnpm dev` - Start development servers
+- `pnpm build` - Build all packages
+- `pnpm check-types` - Check TypeScript types
+- `pnpm lint` - Run ESLint
+- `pnpm lint:fix` - Fix ESLint issues
+- `pnpm format` - Format code with Prettier
+- `pnpm format:path` - Format specific files with Prettier (e.g. `pnpm format:path src/index.ts`)
+- `pnpm format:check` - Check code formatting with Prettier
+- `pnpm test` - Run tests
+- `pnpm prepare` - Prepare Husky git hooks
+- `pnpm docker:dev` - Run with Docker (development)
+- `pnpm docker:prod` - Run with Docker (production)
+- `pnpm k8s:deploy` - Build, push, and deploy to Kubernetes
+- `pnpm k8s:verify` - Verify the Kubernetes deployment
 
-   ```bash
-   pnpm dev
-   ```
+### Database Commands (run from packages/db)
 
-6. Open your browser and visit `http://localhost:3000`
-
-### Installation (Docker)
-
-If you prefer Docker, you can run Play Chess without installing Node.js or pnpm.
-
-1. Copy all example environment files and fill in the required values (see step 2 above)
-
-2. Build and run containers:
-
-   ```bash
-   docker compose up -d --build
-   ```
-
-3. Verify containers are running:
-
-   ```bash
-   docker ps
-   ```
-
-4. Open your browser:
-   - **Web** → `http://localhost:3000`
-   - **API** → `http://localhost:4000`
-
-5. To stop the containers:
-
-   ```bash
-   docker compose down
-   ```
+- `pnpm db:generate` - Generate Prisma client
+- `pnpm db:migrate` - Run database migrations
 
 ## Structure
 
 ```plaintext
 play-chess/
 ├── apps/
-│   ├── web/          # Next.js frontend
-│   ├── api/          # Express + Socket.IO server
-│   ├── email/        # Email template preview
-│   └── studio/       # Prisma Studio
+│   ├── web/
+│   ├── api/
+│   ├── email/
+│   └── studio/
 ├── packages/
-│   ├── auth/         # Authentication logic
-│   ├── chess/        # Chess game logic
-│   ├── db/           # Prisma schema & client
-│   ├── email/        # Email templates
-│   ├── payments/     # Stripe integration
-│   ├── rate-limit/   # API rate limiting
-│   ├── ui/           # Shared UI components
-│   └── utils/        # Shared utilities
+│   ├── auth/
+│   ├── chess/
+│   ├── db/
+│   ├── email/
+│   ├── payments/
+│   ├── vitest-presets/
+│   ├── prettier-config/
+│   ├── rate-limit/
+│   ├── typescript-config/
+│   ├── ui/
+│   ├── utils/
 └── turbo.json
 ```
 
-## Available Scripts
+## Docker Deployment
 
-- `pnpm dev` — Start development servers
-- `pnpm build` — Build all packages
-- `pnpm lint` — Run ESLint
-- `pnpm format` — Format code with Prettier
-- `pnpm test` — Run tests
-- `pnpm docker:prod` — Start production Docker containers
+Production-ready Docker setup with docker-compose:
 
-### Database Commands (run from packages/db)
+Development:
 
-- `pnpm db:generate` — Generate Prisma client
-- `pnpm db:migrate` — Run database migrations
-- `pnpm db:studio` — Open Prisma Studio
+```bash
+pnpm docker:dev
+```
+
+Production:
+
+```bash
+pnpm docker:prod
+```
+
+- **Web app** → `localhost:3000`
+- **API server** → `localhost:4000`
+- **PostgreSQL** → `localhost:5432`
+
+Features:
+
+- Multi-stage builds for minimal image size
+- Non-root user execution for security
+- Turbo pruning for optimized workspace dependencies
+
+## Kubernetes Deployment
+
+Deploy to any Kubernetes cluster using the manifests in `k8s/` and the deploy script:
+
+```bash
+# Set your Docker Hub username in deploy.sh and k8s/*-deployment.yml, then:
+pnpm k8s:deploy
+```
+
+After deploying, verify the rollout:
+
+```bash
+pnpm k8s:verify
+```
+
+See [Kubernetes docs](https://build-elevate.vercel.app/docs/deployment/kubernetes) for the full guide.
 
 ## Documentation
 
-- [Web App Documentation](apps/web/README.md) — Next.js application
-- [API Documentation](apps/api/README.md) — Express server
-- [UI Components Guide](packages/ui/README.md) — shadcn/ui components
+- [Web App Documentation](apps/web/README.md) - Next.js application
+- [UI Components Guide](packages/ui/README.md) - shadcn/ui components
+- [API Documentation](apps/api/README.md) - Express server
 
 ## License
 

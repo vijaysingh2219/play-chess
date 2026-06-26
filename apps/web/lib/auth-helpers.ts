@@ -1,4 +1,7 @@
-import { auth } from '@workspace/auth';
+import type { Session } from '@workspace/auth/client';
+import { auth } from '@workspace/auth/server';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 
 export async function requireAuth(req: Request) {
@@ -14,4 +17,24 @@ export async function requireAuth(req: Request) {
     error: null,
     session,
   };
+}
+
+/**
+ * Server Component guard. Loads the current session and redirects to sign-in
+ * when unauthenticated. Returns the session with `user` and `session` narrowed
+ * to non-null. `proxy.ts` remains the front-line gate; this provides the typed
+ * session data to pages and defense-in-depth.
+ */
+export async function requireUser(): Promise<Session> {
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session?.user) {
+    redirect('/sign-in');
+  }
+
+  // The `auth` instance is annotated with a generic type to keep its inferred
+  // type serializable (the Stripe plugin makes it huge), so the session user is
+  // typed minimally here. At runtime it includes the configured additional
+  // fields (rating, username, …), so we surface the richer client Session type.
+  return session as unknown as Session;
 }

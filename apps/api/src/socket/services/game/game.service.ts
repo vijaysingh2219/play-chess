@@ -5,8 +5,8 @@
  * Uses sub-services for specific concerns like caching, locking, and persistence.
  */
 
+import { GameState, GameType, MoveData } from '@workspace/contracts';
 import { Color, GameTerminationReason, prisma, Winner } from '@workspace/db';
-import { GameState, GameType, MoveData } from '@workspace/utils/types';
 import { Chess, PieceSymbol } from 'chess.js';
 import { calculateEloChanges } from '../elo';
 import {

@@ -1,4 +1,4 @@
-import { TypedServer } from '@workspace/utils/types';
+import { TypedServer } from '@workspace/contracts';
 import type { Server as HTTPServer } from 'http';
 import type { Redis } from 'ioredis';
 import { Server } from 'socket.io';
@@ -40,10 +40,18 @@ export async function initializeSocketServer(httpServer: HTTPServer): Promise<Ty
 
   io.use(authMiddleware);
 
-  const { adapter, pubClient, subClient } = await setupRedisAdapter();
-  io.adapter(adapter);
-  redisPub = pubClient;
-  redisSub = subClient;
+  // Redis adapter when reachable. Required in prod (multi-instance broadcasts):
+  // fail fast there; in dev fall back to the in-memory adapter.
+  const redisSetup = await setupRedisAdapter();
+  if (redisSetup) {
+    io.adapter(redisSetup.adapter);
+    redisPub = redisSetup.pubClient;
+    redisSub = redisSetup.subClient;
+  } else if (process.env.NODE_ENV === 'production') {
+    throw new Error('[Socket.IO] Redis is required in production but unreachable. Set REDIS_URL.');
+  } else {
+    console.warn('[Socket.IO] No Redis — using in-memory adapter (dev/single-instance only).');
+  }
 
   setupConnectionHandlers(io);
   setupMatchmakingHandlers(io);

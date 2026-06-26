@@ -1,26 +1,55 @@
 import { stripeClient } from '@better-auth/stripe/client';
-import { twoFactorClient, usernameClient } from 'better-auth/client/plugins';
+import { inferAdditionalFields, twoFactorClient, usernameClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 import { keys } from './keys';
 
-export const authClient = createAuthClient({
+const authClientOptions = {
   baseURL: keys().NEXT_PUBLIC_BASE_URL,
   plugins: [
+    twoFactorClient({
+      twoFactorPage: '/two-factor',
+      onTwoFactorRedirect({ twoFactorMethods }) {
+        const methods = twoFactorMethods;
+
+        // No methods available
+        if (!methods?.length) {
+          window.location.href = '/login';
+          return;
+        }
+
+        // TOTP is the only method available
+        if (methods.includes('totp')) {
+          window.location.href = '/two-factor'; // Handle the 2FA verification redirect
+          return;
+        }
+      },
+    }),
+    usernameClient(),
     stripeClient({
       subscription: true,
     }),
-    twoFactorClient(),
-    usernameClient(),
+    inferAdditionalFields({
+      user: {
+        rating: { type: 'number', required: false, input: false },
+      },
+    }),
   ],
-});
+};
+
+type AuthClient = ReturnType<typeof createAuthClient<typeof authClientOptions>>;
+
+export const authClient: AuthClient = createAuthClient(authClientOptions);
+
+export const signUp: AuthClient['signUp'] = authClient.signUp;
+export const updateUser: AuthClient['updateUser'] = authClient.updateUser;
 
 export const {
   signIn,
   signOut,
-  signUp,
   useSession,
   getSession,
   revokeSession,
+  revokeOtherSessions,
   sendVerificationEmail,
   listAccounts,
   linkSocial,
@@ -28,7 +57,6 @@ export const {
   twoFactor,
   changePassword,
   changeEmail,
-  updateUser,
   deleteUser,
   requestPasswordReset,
   resetPassword,

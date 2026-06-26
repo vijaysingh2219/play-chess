@@ -1,5 +1,6 @@
 'use client';
 
+import { MoveData } from '@workspace/contracts';
 import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import {
   Table,
@@ -11,7 +12,6 @@ import {
 } from '@workspace/ui/components/table';
 import { useIsMobile } from '@workspace/ui/hooks/use-mobile';
 import { cn } from '@workspace/ui/lib/utils';
-import { MoveData } from '@workspace/utils';
 import { memo, useCallback, useEffect, useRef } from 'react';
 
 interface MoveHistoryProps {

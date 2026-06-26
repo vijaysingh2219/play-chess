@@ -1,7 +1,7 @@
 @import 'tailwindcss';
-@source "../../../apps/**/*.{ts,tsx}";
-@source "../../../components/**/*.{ts,tsx}";
-@source "../**/*.{ts,tsx}";
+@source '../../../apps/**/*.{ts,tsx}';
+@source '../../../components/**/*.{ts,tsx}';
+@source '../**/*.{ts,tsx}';
 
 @import 'tw-animate-css';
 
@@ -54,6 +54,9 @@
   --shadow-2xl: 0px 4px 10px 0px hsl(240 30% 25% / 0.3);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+
+  /* Custom properties for layout */
+  --header-height: 3.5rem;
 }
 
 .dark {

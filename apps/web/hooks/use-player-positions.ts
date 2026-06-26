@@ -1,6 +1,6 @@
 import { AuthUser } from '@/hooks/use-auth-user';
 import { DisplayUser } from '@/types';
-import { GameState } from '@workspace/utils';
+import { GameState } from '@workspace/contracts';
 import type { Color } from 'chess.js';
 import { useMemo } from 'react';
 

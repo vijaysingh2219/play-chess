@@ -2,7 +2,7 @@
 
 import { IGame as Game } from '@/components/chess/replay-board';
 import { IGame, useGameById, useGamesByUser } from '@/hooks/queries/games';
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { downloadPGN, generatePGNString } from '@/lib/pgn';
 import { getPlayerIndicatorClass, renderResultIcon } from '@/lib/utils';
 import { Button } from '@workspace/ui/components/button';

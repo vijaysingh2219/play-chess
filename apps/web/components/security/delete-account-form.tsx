@@ -1,9 +1,11 @@
 'use client';
 
+import { ConfirmField, PasswordField } from '@/components/form';
 import { useHasPassword } from '@/hooks/use-has-password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { deleteUser } from '@workspace/auth/client';
+import { DeleteAccountFormValues, deleteAccountSchema } from '@workspace/contracts';
 import { Alert, AlertDescription, AlertTitle } from '@workspace/ui/components/alert';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -22,25 +24,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@workspace/ui/components/form';
-import { Input } from '@workspace/ui/components/input';
+import { Form } from '@workspace/ui/components/form';
 import { Skeleton } from '@workspace/ui/components/skeleton';
 import { Spinner } from '@workspace/ui/components/spinner';
-import { deleteAccountSchema } from '@workspace/utils/schemas';
-import { DeleteAccountFormValues } from '@workspace/utils/types';
-import { AlertCircle, Lock, Trash2 } from 'lucide-react';
+import { AlertCircle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 export function DeleteAccountForm() {
@@ -100,6 +91,13 @@ export function DeleteAccountForm() {
     setShowDialog(true);
   };
 
+  const confirmation = useWatch({
+    control: form.control,
+    name: 'confirmation',
+    defaultValue: '',
+  });
+  const isDeleteDisabled = deleteAccountMutation.isPending || confirmation !== 'DELETE';
+
   return (
     <>
       <Card id="delete-account" className="border-destructive scroll-mt-6">
@@ -143,17 +141,8 @@ export function DeleteAccountForm() {
             onClick={handleOpenDialog}
             disabled={checkingPassword || hasPassword === false}
           >
-            {checkingPassword ? (
-              <>
-                <Spinner />
-                Checking...
-              </>
-            ) : (
-              <>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Account
-              </>
-            )}
+            {checkingPassword ? <Spinner /> : <Trash2 className="mr-2 h-4 w-4" />}
+            {checkingPassword ? 'Checking...' : 'Delete Account'}
           </Button>
         </CardFooter>
       </Card>
@@ -170,49 +159,22 @@ export function DeleteAccountForm() {
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleDeleteAccount)} className="space-y-4">
-              <FormField
+              <PasswordField
                 control={form.control}
                 name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Password <span className="text-primary">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Lock className="text-muted-foreground absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform" />
-                        <Input
-                          type="password"
-                          placeholder="Enter your password"
-                          autoComplete="current-password"
-                          className="pl-10"
-                          {...field}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormDescription>Enter your password to confirm it&apos;s you.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="Password"
+                placeholder="Enter your password"
+                description="Enter your password to confirm it's you."
+                autoComplete="current-password"
               />
 
-              <FormField
+              <ConfirmField
                 control={form.control}
                 name="confirmation"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Type &quot;DELETE&quot; to confirm <span className="text-primary">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input placeholder="DELETE" autoComplete="off" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Type DELETE in capital letters to confirm deletion.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label='Type "DELETE" to confirm'
+                placeholder="DELETE"
+                confirmText="DELETE"
+                description="Type DELETE in capital letters to confirm."
               />
 
               <DialogFooter className="gap-2">
@@ -224,24 +186,13 @@ export function DeleteAccountForm() {
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  variant="destructive"
-                  disabled={
-                    deleteAccountMutation.isPending || form.watch('confirmation') !== 'DELETE'
-                  }
-                >
+                <Button type="submit" variant="destructive" disabled={isDeleteDisabled}>
                   {deleteAccountMutation.isPending ? (
-                    <>
-                      <Spinner />
-                      Deleting...
-                    </>
+                    <Spinner />
                   ) : (
-                    <>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete Account
-                    </>
+                    <Trash2 className="mr-2 h-4 w-4" />
                   )}
+                  {deleteAccountMutation.isPending ? 'Deleting...' : 'Delete Account'}
                 </Button>
               </DialogFooter>
             </form>
@@ -254,15 +205,19 @@ export function DeleteAccountForm() {
 
 export function DeleteAccountFormSkeleton() {
   return (
-    <div className="border-destructive/50 bg-destructive/5 space-y-6 rounded-lg border p-6">
-      <div className="flex items-center gap-4">
-        <div className="flex-1 space-y-1">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-80" />
+    <Card className="border-destructive/50 bg-destructive/5">
+      <CardHeader>
+        <div className="flex items-center gap-4">
+          <div className="flex-1 space-y-1">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-80" />
+          </div>
         </div>
-      </div>
-      <Skeleton className="h-20 w-full" />
-      <Skeleton className="h-10 w-32" />
-    </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-10 w-32" />
+      </CardContent>
+    </Card>
   );
 }

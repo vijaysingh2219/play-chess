@@ -29,15 +29,18 @@ export function useGameClock({
     white: timeLeft.white,
     black: timeLeft.black,
   });
+  const [prevTimeLeft, setPrevTimeLeft] = useState(timeLeft);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync display time with server time when it changes (e.g., after a move)
-  useEffect(() => {
+  // Sync display time with server time when it changes (e.g., after a move).
+  // Adjust derived state during render instead of in an effect.
+  if (timeLeft !== prevTimeLeft) {
+    setPrevTimeLeft(timeLeft);
     setDisplayTime({
       white: timeLeft.white,
       black: timeLeft.black,
     });
-  }, [timeLeft]);
+  }
 
   // Run the clock for the active player
   useEffect(() => {

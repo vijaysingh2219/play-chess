@@ -1,1 +1,1 @@
-export const APP_TITLE = 'BUILD ELEVATE';
+export const APP_TITLE = 'Play Chess';

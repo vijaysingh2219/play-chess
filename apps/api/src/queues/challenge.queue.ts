@@ -1,6 +1,6 @@
+import { getUserRoomId, TypedServer } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
-import { getUserRoomId, TypedServer } from '@workspace/utils/types';
 import Bull from 'bull';
 
 interface ChallengeExpirationJob {
@@ -13,21 +13,21 @@ interface ChallengeExpirationJob {
  * Handles automatic expiration of challenges after 5 minutes
  * using Bull job queue for reliability and scalability
  */
-export const challengeExpirationQueue = new Bull<ChallengeExpirationJob>('challenge-expiration', {
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-  },
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 2000,
+export const challengeExpirationQueue = new Bull<ChallengeExpirationJob>(
+  'challenge-expiration',
+  process.env.REDIS_URL || 'redis://localhost:6379',
+  {
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
+      removeOnComplete: true,
+      removeOnFail: false,
     },
-    removeOnComplete: true,
-    removeOnFail: false,
   },
-});
+);
 
 /**
  * Process challenge expiration jobs

@@ -1,6 +1,6 @@
 'use client';
 
-import useMounted from '@/hooks/use-mounted';
+import useIsMounted from '@/hooks/useIsMounted';
 import { Button } from '@workspace/ui/components/button';
 import {
   DropdownMenu,
@@ -12,14 +12,15 @@ import {
 import { useSidebar } from '@workspace/ui/components/sidebar';
 import { LaptopIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { themes } from './themes';
 
-export default function ThemeSwitcher() {
-  const mounted = useMounted();
+export function ThemeSwitcher() {
+  const isMounted = useIsMounted();
   const { theme, setTheme } = useTheme();
   const { state } = useSidebar();
 
   const isSidebarExpanded = state === 'expanded';
-  if (!mounted) return null;
+  if (!isMounted) return null;
 
   const currentIcon =
     theme === 'light' ? (
@@ -29,12 +30,6 @@ export default function ThemeSwitcher() {
     ) : (
       <LaptopIcon className="h-4 w-4" />
     );
-
-  const themes = [
-    { name: 'light', label: 'Light', icon: SunIcon },
-    { name: 'dark', label: 'Dark', icon: MoonIcon },
-    { name: 'system', label: 'System', icon: LaptopIcon },
-  ];
 
   return (
     <DropdownMenu>
@@ -50,11 +45,11 @@ export default function ThemeSwitcher() {
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
-          {themes.map((theme) => (
-            <DropdownMenuRadioItem key={theme.name} value={theme.name}>
+          {themes.map(({ key, label, Icon }) => (
+            <DropdownMenuRadioItem key={key} value={key}>
               <div className="flex items-center">
-                <theme.icon className="mr-2 h-4 w-4" />
-                <span>{theme.label}</span>
+                <Icon className="mr-2 h-4 w-4" />
+                <span>{label}</span>
               </div>
             </DropdownMenuRadioItem>
           ))}
@@ -63,3 +58,5 @@ export default function ThemeSwitcher() {
     </DropdownMenu>
   );
 }
+
+export default ThemeSwitcher;

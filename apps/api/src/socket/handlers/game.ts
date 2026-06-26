@@ -1,10 +1,10 @@
-import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import {
   AuthenticatedSocket,
   getGameRoomId,
   getUserRoomId,
   TypedServer,
-} from '@workspace/utils/types';
+} from '@workspace/contracts';
+import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { Chess } from 'chess.js';
 import { GameError } from '../middleware/error.middleware';
 import { createHandler } from '../middleware/validation.middleware';

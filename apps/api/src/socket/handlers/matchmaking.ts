@@ -1,6 +1,6 @@
+import { AuthenticatedSocket, getUserRoomId, TypedServer } from '@workspace/contracts';
 import { parseTimeControl } from '@workspace/utils';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
-import { AuthenticatedSocket, getUserRoomId, TypedServer } from '@workspace/utils/types';
 import { asyncHandler } from '../middleware/error.middleware';
 import { createHandler } from '../middleware/validation.middleware';
 import { FindMatchPayload, FindMatchSchema } from '../schemas';

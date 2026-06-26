@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: ./apps/web/Dockerfile.prod
+      args:
+        API_INTERNAL_URL: http://play-chess-api-service.play-chess.svc.cluster.local:4000
     env_file:
       - ./apps/web/.env.production
     ports:
@@ -33,8 +35,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000/health"]

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: play-chess-config
+  namespace: play-chess
+data:
+  NODE_ENV: "production"
+  # Used by Next.js next.config.mjs to proxy /api/v1/* → API service at /api/*
+  API_INTERNAL_URL: "http://play-chess-api-service.play-chess.svc.cluster.local:4000"

@@ -1,40 +1,36 @@
-import { Gamepad2, Home, Library, Trophy, Users } from 'lucide-react';
+import { Gamepad2, Library, Swords, Trophy, Users } from 'lucide-react';
 import { Metadata } from 'next';
+import {
+  BASE_URL,
+  DEFAULT_OG_IMAGE,
+  DOMAIN,
+  SITE_DESCRIPTION,
+  SITE_KEYWORDS,
+  SITE_NAME,
+  toAbsoluteUrl,
+} from './site-shared';
 
 export const siteConfig: Metadata = {
-  title: 'Play Chess',
-  description: 'A ',
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
   icons: {
     icon: [{ url: '/favicon.ico' }],
     apple: '/apple-touch-icon.png',
     shortcut: '/favicon.ico',
   },
-  keywords: [
-    'turborepo',
-    'starter',
-    'template',
-    'react',
-    'typescript',
-    'nextjs',
-    'tailwindcss',
-    'prisma',
-    'postgresql',
-    'shadcn/ui',
-    'better-auth',
-    'resend',
-    'react-email',
-  ],
+  metadataBase: new URL(BASE_URL),
+  keywords: SITE_KEYWORDS,
   openGraph: {
-    title: 'Play Chess',
-    description: 'A starter template for building applications with Turborepo.',
-    url: process.env.NEXT_PUBLIC_BASE_URL ?? 'https://turborepo.org',
-    siteName: 'Play Chess',
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: BASE_URL,
+    siteName: SITE_NAME,
     images: [
       {
-        url: 'https://turborepo.com/_next/image?url=%2Fimages%2Fdocs%2Fslow-tasks-dark.png&w=1920&q=75',
+        url: toAbsoluteUrl(DEFAULT_OG_IMAGE),
         width: 1200,
         height: 630,
-        alt: 'Play Chess',
+        alt: SITE_NAME,
       },
     ],
     locale: 'en_US',
@@ -42,19 +38,28 @@ export const siteConfig: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Play Chess',
-    description: 'A starter template for building applications with Turborepo.',
-    images: [
-      'https://turborepo.com/_next/image?url=%2Fimages%2Fdocs%2Fslow-tasks-dark.png&w=1920&q=75',
-    ],
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [toAbsoluteUrl(DEFAULT_OG_IMAGE)],
   },
 };
 
+export type SidebarCollapsibleMode = 'offcanvas' | 'icon' | 'none';
+
+export type LayoutConfig = {
+  showHeader: boolean;
+  sidebarCollapsible: SidebarCollapsibleMode;
+};
+
 export const config = {
-  name: 'Play Chess',
-  description: siteConfig.description,
-  baseUrl: process.env.NEXT_PUBLIC_BASE_URL,
-  domain: process.env.NEXT_PUBLIC_DOMAIN,
+  name: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  baseUrl: BASE_URL,
+  domain: DOMAIN,
+  layout: {
+    showHeader: true, // set --header-height in globals.css (custom or default: 3.5rem) when true, 0rem when false)
+    sidebarCollapsible: 'offcanvas',
+  } as LayoutConfig,
   providers: [
     {
       id: 'google',
@@ -62,11 +67,6 @@ export const config = {
     },
   ],
   nav: [
-    {
-      title: 'Home',
-      href: '/',
-      icon: Home,
-    },
     {
       title: 'Play',
       href: '/play/online',
@@ -86,6 +86,11 @@ export const config = {
       title: 'Leaderboard',
       href: '/leaderboard',
       icon: Trophy,
+    },
+    {
+      title: 'Challenges',
+      href: '/challenges',
+      icon: Swords,
     },
   ],
 };

@@ -60,7 +60,7 @@ export default function Hero() {
                 </div>
               </CardContent>
             </Card>
-            <div className="bg-primary text-primary-foreground absolute -right-2 -top-2 rounded-full p-3 shadow-lg sm:-right-4 sm:-top-4">
+            <div className="bg-primary text-primary-foreground absolute -top-2 -right-2 rounded-full p-3 shadow-lg sm:-top-4 sm:-right-4">
               <Crown className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
           </div>

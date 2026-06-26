@@ -1,6 +1,6 @@
 'use client';
 
-import { MoveData, PIECE_VALUES } from '@workspace/utils/types';
+import { MoveData, PIECE_VALUES } from '@workspace/contracts';
 import { useMemo } from 'react';
 
 /**

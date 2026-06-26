@@ -5,9 +5,9 @@
  * Used by both online games and replay boards.
  */
 
-import type { MoveData } from '@workspace/utils/types';
+import type { MoveData } from '@workspace/contracts';
 import { Chess } from 'chess.js';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 interface UseMoveNavigationOptions {
   /** List of moves in the game */
@@ -48,6 +48,12 @@ export function useMoveNavigation({
   const [viewingMoveIndex, setViewingMoveIndex] = useState<number | null>(null);
 
   const totalMoves = moves.length;
+
+  // Snap back to live when the viewed index falls out of range (new moves).
+  if (viewingMoveIndex !== null && viewingMoveIndex >= totalMoves) {
+    setViewingMoveIndex(null);
+  }
+
   const isViewingHistory = viewingMoveIndex !== null;
   const currentViewIndex = isViewingHistory ? viewingMoveIndex : totalMoves - 1;
 
@@ -107,13 +113,6 @@ export function useMoveNavigation({
   const goToLatestMove = useCallback(() => {
     setViewingMoveIndex(null);
   }, []);
-
-  // Reset to latest position when new moves come in
-  useEffect(() => {
-    if (isViewingHistory && viewingMoveIndex >= totalMoves) {
-      setViewingMoveIndex(null);
-    }
-  }, [totalMoves, isViewingHistory, viewingMoveIndex]);
 
   return {
     viewingMoveIndex,

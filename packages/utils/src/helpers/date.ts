@@ -2,26 +2,16 @@ import {
   differenceInDays,
   differenceInMonths,
   differenceInWeeks,
+  formatDistanceToNow,
+} from 'date-fns';
+
+export {
   format as formatDate,
   formatDistanceToNow,
   formatDuration,
   intervalToDuration,
 } from 'date-fns';
 
-export {
-  differenceInDays,
-  differenceInMonths,
-  differenceInWeeks,
-  formatDate,
-  formatDistanceToNow,
-  formatDuration,
-  intervalToDuration,
-};
-
-/**
- * Format a date range showing time remaining until expiry.
- * @param end - The end date to compare against now
- */
 export function formatDateRange(end: Date): string {
   const now = new Date();
   const diffDays = differenceInDays(end, now);

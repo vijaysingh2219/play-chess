@@ -5,20 +5,20 @@
   "scripts": {
     "build": "tsc --build",
     "clean": "rm -rf dist .turbo node_modules",
-    "dev": "nodemon --exec \"node -r esbuild-register ./src/index.ts\" -e .ts",
+    "dev": "tsx --watch src/index.ts",
     "lint": "tsc --noEmit && eslint \"src/**/*.ts*\" --max-warnings 0",
+    "lint:fix": "eslint \"src/**/*.ts*\" --fix",
     "check-types": "tsc --noEmit",
     "start": "node dist/index.js",
-    "test": "jest --detectOpenHandles --coverage"
+    "test": "vitest run --coverage"
   },
   "prettier": "@workspace/prettier-config",
-  "jest": {
-    "preset": "@workspace/jest-presets/node"
-  },
   "dependencies": {
     "@socket.io/redis-adapter": "catalog:server",
     "@workspace/auth": "workspace:*",
+    "@workspace/contracts": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/logger": "workspace:*",
     "@workspace/rate-limit": "workspace:*",
     "@workspace/utils": "workspace:*",
     "bull": "catalog:server",
@@ -29,28 +29,26 @@
     "helmet": "catalog:server",
     "ioredis": "catalog:server",
     "morgan": "catalog:server",
+    "pino-http": "catalog:server",
     "socket.io": "catalog:server",
     "uuid": "catalog:server",
     "zod": "catalog:core"
   },
   "devDependencies": {
-    "@jest/globals": "catalog:dev",
     "@types/chess.js": "catalog:chess",
     "@types/cors": "catalog:server",
     "@types/express": "catalog:server",
     "@types/morgan": "catalog:server",
     "@types/node": "catalog:dev",
     "@types/supertest": "catalog:dev",
+    "@vitest/coverage-v8": "catalog:dev",
     "@workspace/eslint-config": "workspace:*",
-    "@workspace/jest-presets": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "esbuild": "catalog:dev",
-    "esbuild-register": "catalog:dev",
+    "@workspace/vitest-presets": "workspace:*",
     "eslint": "catalog:eslint",
-    "jest": "catalog:dev",
-    "nodemon": "catalog:dev",
     "supertest": "catalog:dev",
-    "ts-jest": "catalog:dev",
-    "typescript": "catalog:dev"
+    "tsx": "catalog:dev",
+    "typescript": "catalog:dev",
+    "vitest": "catalog:dev"
   }
 }

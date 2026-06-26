@@ -1,7 +1,7 @@
+import { AuthenticatedSocket, getUserRoomId, TypedServer } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
 import { parseTimeControl } from '@workspace/utils';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
-import { AuthenticatedSocket, getUserRoomId, TypedServer } from '@workspace/utils/types';
 import {
   cancelChallengeExpiration,
   scheduleChallengeExpiration,

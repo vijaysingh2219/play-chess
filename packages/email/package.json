@@ -3,22 +3,27 @@
   "version": "1.0.0",
   "private": true,
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
   },
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc --build",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf dist generated .turbo node_modules",
     "dev": "tsc --watch",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix"
   },
   "prettier": "@workspace/prettier-config",
   "dependencies": {
-    "@react-email/components": "catalog:core",
+    "@react-email/ui": "catalog:core",
     "@t3-oss/env-nextjs": "catalog:core",
     "react": "catalog:core",
+    "react-email": "catalog:core",
     "resend": "catalog:core",
     "zod": "catalog:core"
   },

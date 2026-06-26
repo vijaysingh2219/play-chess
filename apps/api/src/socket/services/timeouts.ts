@@ -1,13 +1,13 @@
 import Bull from 'bull';
 
-export const gameTimeoutQueue = new Bull('game-timeouts', {
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
+export const gameTimeoutQueue = new Bull(
+  'game-timeouts',
+  process.env.REDIS_URL || 'redis://localhost:6379',
+  {
+    defaultJobOptions: {
+      attempts: 1,
+      removeOnComplete: true,
+      removeOnFail: false,
+    },
   },
-  defaultJobOptions: {
-    attempts: 1,
-    removeOnComplete: true,
-    removeOnFail: false,
-  },
-});
+);

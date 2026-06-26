@@ -5,25 +5,38 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./client": {
       "types": "./dist/client.d.ts",
+      "import": "./src/client.ts",
       "default": "./dist/client.js"
     },
     "./server": {
       "types": "./dist/server.d.ts",
+      "import": "./src/server.ts",
       "default": "./dist/server.js"
+    },
+    "./next-handlers": {
+      "types": "./dist/next-handlers.d.ts",
+      "import": "./src/next-handlers.ts",
+      "default": "./dist/next-handlers.js"
+    },
+    "./node-handlers": {
+      "types": "./dist/node-handlers.d.ts",
+      "import": "./src/node-handlers.ts",
+      "default": "./dist/node-handlers.js"
     }
   },
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc --build",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf dist .turbo node_modules",
     "dev": "tsc --build --watch",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix"
   },
   "prettier": "@workspace/prettier-config",
   "dependencies": {
@@ -36,7 +49,7 @@
     "@workspace/utils": "workspace:*",
     "better-auth": "catalog:core",
     "dotenv": "catalog:core",
-    "stripe": "20.0.0",
+    "stripe": "catalog:core",
     "zod": "catalog:core"
   },
   "devDependencies": {

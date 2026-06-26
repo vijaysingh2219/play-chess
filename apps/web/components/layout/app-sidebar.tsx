@@ -1,8 +1,7 @@
 'use client';
 
 import { NavUser } from '@/components/layout/nav-user';
-import KeyboardShortcutsButton from '@/components/ui/keyboard-shortcuts-button';
-import Logo from '@/components/ui/logo';
+import { Logo } from '@/components/ui/logo';
 import ThemeSwitcher from '@/components/ui/theme-switcher';
 import { config } from '@/config/site';
 import { useKeyboardShortcuts } from '@/contexts/keyboard-shortcuts-context';
@@ -23,13 +22,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarTrigger,
   useSidebar,
 } from '@workspace/ui/components/sidebar';
 import { cn } from '@workspace/ui/lib/utils';
-import { BadgeCheck, LogIn, Sparkles, Swords, User2, UserPlus } from 'lucide-react';
+import { BadgeCheck, LogIn, Sparkles, User2, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
+import KeyboardShortcutsButton from '../ui/keyboard-shortcuts-button';
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state } = useSidebar();
@@ -42,11 +41,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const exploreItems = [
     ...config.nav,
-    {
-      title: 'Challenges',
-      href: '/challenges',
-      icon: Swords,
-    },
     ...(user
       ? [
           {
@@ -83,18 +77,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     : [];
 
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className={`flex ${isSidebarExpanded ? 'flex-row' : 'flex-col'}`}>
+    <Sidebar collapsible={config.layout?.sidebarCollapsible ?? 'offcanvas'} {...props}>
+      <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1">
-              <Link href="/" className="flex items-center gap-2 self-center font-medium">
+            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:p-1.5!">
+              <Link href="/">
                 <Logo variant="sidebar" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <SidebarTrigger className="size-8" />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -146,13 +139,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {isAuthenticated ? (
           <>
             <KeyboardShortcutsButton onClick={showShortcuts} />
-            <ThemeSwitcher />
+            {!config.layout?.showHeader ? <ThemeSwitcher /> : null}
             <NavUser />
           </>
         ) : (
           <div className={cn('flex flex-col gap-2', { 'self-center': !isSidebarExpanded })}>
             <KeyboardShortcutsButton onClick={showShortcuts} />
-            <ThemeSwitcher />
+            {!config.layout?.showHeader ? <ThemeSwitcher /> : null}
             <Button size={isSidebarExpanded ? 'sm' : 'icon'} aria-label="Sign up">
               <Link
                 href="/sign-up"

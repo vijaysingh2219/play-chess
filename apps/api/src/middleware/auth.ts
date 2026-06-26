@@ -1,48 +1,48 @@
-import { auth, fromNodeHeaders } from '@workspace/auth';
+import { fromNodeHeaders } from '@workspace/auth/node-handlers';
+import { auth } from '@workspace/auth/server';
 import { NextFunction, Request, Response } from 'express';
 
+/**
+ * Middleware to get the session from Better Auth and attach it to the request object.
+ * This middleware extracts the session from cookies/headers and makes it available
+ * on req.session and req.user for subsequent middleware and route handlers.
+ */
 export const getSession = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
+    // Use Better Auth's fromNodeHeaders helper to convert Node.js headers
+    // to the Headers object format expected by Better Auth
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
 
-    // Ensure user object includes all required properties
-    let userWithDefaults = null;
-    if (session?.user) {
-      userWithDefaults = {
-        twoFactorEnabled: null,
-        username: undefined,
-        displayUsername: undefined,
-        ...session.user,
-      };
-    }
-    if (session && userWithDefaults) {
-      req.session = { ...session, user: userWithDefaults };
-      req.user = userWithDefaults;
-    } else {
-      req.session = null;
-      req.user = null;
-    }
+    // Attach session and user to request object
+    req.session = session;
+    req.user = session?.user || null;
 
     next();
   } catch (error) {
-    console.error('Error getting session:', error);
+    req.log.error({ err: error }, 'Error getting session');
     req.session = null;
     req.user = null;
     next();
   }
 };
 
+/**
+ * Middleware to require authentication.
+ * Returns 401 if no valid session is found.
+ * Use this middleware on routes that require authentication.
+ */
 export const requireAuth = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
+  // First get the session if not already attached
   if (req.session === undefined) {
     await getSession(req, res, () => {});
   }

@@ -2,9 +2,8 @@ import { stripe } from '@better-auth/stripe';
 import { prisma } from '@workspace/db';
 import {
   changeEmailSchema,
-  getTemplate,
   resetPasswordSchema,
-  sendEmail,
+  sendAuthEmail,
   verifyEmailSchema,
 } from '@workspace/email';
 import { getStripe, WEBHOOK_SECRET } from '@workspace/payments/client';
@@ -13,6 +12,7 @@ import {
   changeEmailRateLimiter,
   resetPasswordRateLimiter,
   verifyEmailRateLimiter,
+  welcomeEmailRateLimiter,
 } from '@workspace/rate-limit';
 import { betterAuth, BetterAuthOptions } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
@@ -21,7 +21,6 @@ import { generateUniqueUsername } from './helpers';
 
 export const auth: ReturnType<typeof betterAuth<BetterAuthOptions>> = betterAuth<BetterAuthOptions>(
   {
-    baseURL: process.env.BETTER_AUTH_URL as string,
     database: prismaAdapter(prisma, {
       provider: 'postgresql',
     }),
@@ -37,25 +36,20 @@ export const auth: ReturnType<typeof betterAuth<BetterAuthOptions>> = betterAuth
           throw new Error('Failed to send password reset email');
         }
 
-        const { success: rateLimitSuccess } = await resetPasswordRateLimiter.limit(user.email);
-        if (!rateLimitSuccess) {
-          console.log('Rate limit exceeded. Please try again later.');
-          return;
-        }
-
-        const emailTemplate = getTemplate('reset-password');
-        await sendEmail({
-          to: user.email,
-          subject: emailTemplate.subject,
-          react: emailTemplate.render({
-            name: data.name,
-            resetUrl: data.resetUrl,
-          }),
+        await sendAuthEmail({
+          emailType: 'reset-password',
+          limiter: resetPasswordRateLimiter,
+          user,
+          data,
         });
       },
     },
     emailVerification: {
       sendOnSignUp: true,
+      // Re-send on an unverified sign-in attempt so username sign-ins (which
+      // can't resend client-side) still get a fresh link. Rate-limited via
+      // verifyEmailRateLimiter in sendVerificationEmail below.
+      sendOnSignIn: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         const { data, success, error } = verifyEmailSchema.safeParse({
@@ -67,25 +61,37 @@ export const auth: ReturnType<typeof betterAuth<BetterAuthOptions>> = betterAuth
           throw new Error('Failed to send verification email');
         }
 
-        const { success: rateLimitSuccess } = await verifyEmailRateLimiter.limit(user.email);
-        if (!rateLimitSuccess) {
-          console.log('Rate limit exceeded. Please try again later.');
-          return;
-        }
+        await sendAuthEmail({
+          emailType: 'verify-email',
+          limiter: verifyEmailRateLimiter,
+          user,
+          data,
+        });
+      },
+      async afterEmailVerification(user, request) {
+        const origin = request ? new URL(request.url).origin : '';
 
-        const emailTemplate = getTemplate('verify-email');
-        await sendEmail({
-          to: user.email,
-          subject: emailTemplate.subject,
-          react: emailTemplate.render({
-            name: data.name,
-            email: data.email,
-            verificationUrl: data.verificationUrl,
-          }),
+        await sendAuthEmail({
+          emailType: 'welcome',
+          limiter: welcomeEmailRateLimiter,
+          user,
+          data: {
+            name: user.name,
+            getStartedUrl: origin,
+          },
         });
       },
     },
     user: {
+      additionalFields: {
+        // Chess fields. Populated by the game backend; not user-editable on signup.
+        rating: {
+          type: 'number',
+          required: false,
+          defaultValue: 1200,
+          input: false,
+        },
+      },
       changeEmail: {
         enabled: true,
         sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
@@ -99,22 +105,11 @@ export const auth: ReturnType<typeof betterAuth<BetterAuthOptions>> = betterAuth
             throw new Error('Failed to send email change confirmation');
           }
 
-          const { success: rateLimitSuccess } = await changeEmailRateLimiter.limit(user.email);
-          if (!rateLimitSuccess) {
-            console.log('Rate limit exceeded. Please try again later.');
-            return;
-          }
-
-          const emailTemplate = getTemplate('change-email');
-          await sendEmail({
-            to: user.email, // Send to current email
-            subject: emailTemplate.subject,
-            react: emailTemplate.render({
-              name: data.name,
-              currentEmail: data.currentEmail,
-              newEmail: data.newEmail,
-              verificationUrl: data.verificationUrl,
-            }),
+          await sendAuthEmail({
+            emailType: 'change-email',
+            limiter: changeEmailRateLimiter,
+            user,
+            data,
           });
         },
       },
@@ -126,18 +121,20 @@ export const auth: ReturnType<typeof betterAuth<BetterAuthOptions>> = betterAuth
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID as string,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-        mapProfileToUser: async (profile) => {
-          // Validate required fields
-          if (!profile.email) {
-            throw new Error('Email is required from Google profile');
-          }
-          const uniqueUsername = await generateUniqueUsername(profile.email);
-          return {
-            name: profile.name || uniqueUsername,
-            email: profile.email,
-            username: uniqueUsername,
-            displayUsername: uniqueUsername,
-          };
+      },
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user) => {
+            // Social logins (Google) arrive without a username; derive one.
+            if (user.username) return;
+
+            const derived = await generateUniqueUsername(user.email);
+            if (!derived) return;
+
+            return { data: { ...user, username: derived, displayUsername: derived } };
+          },
         },
       },
     },
@@ -149,7 +146,6 @@ export const auth: ReturnType<typeof betterAuth<BetterAuthOptions>> = betterAuth
       },
     },
     plugins: [
-      username(),
       stripe({
         stripeClient: getStripe(),
         stripeWebhookSecret: WEBHOOK_SECRET,
@@ -161,6 +157,7 @@ export const auth: ReturnType<typeof betterAuth<BetterAuthOptions>> = betterAuth
       twoFactor({
         issuer: 'PlayChess',
       }),
+      username(),
     ],
   },
 );

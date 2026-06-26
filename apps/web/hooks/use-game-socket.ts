@@ -1,7 +1,6 @@
 'use client';
 
 import { SoundManager } from '@/lib/sound-manager';
-import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import {
   GameEndedPayload,
   GameError,
@@ -10,7 +9,8 @@ import {
   MakeMovePayload,
   MoveAcceptedPayload,
   OpponentMovedPayload,
-} from '@workspace/utils/types';
+} from '@workspace/contracts';
+import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSocket } from './use-socket';
 
@@ -48,6 +48,10 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [yourColor, setYourColor] = useState<'w' | 'b' | null>(null);
   const [canMove, setCanMove] = useState(false);
+  const [canMoveSyncKey, setCanMoveSyncKey] = useState<{
+    gameState: GameState | null;
+    yourColor: 'w' | 'b' | null;
+  }>({ gameState: null, yourColor: null });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<GameError | null>(null);
   const [timeLeft, setTimeLeft] = useState({ white: 0, black: 0 });
@@ -411,17 +415,16 @@ export function useGameSocket(options: UseGameSocketOptions): UseGameSocketRetur
   }, [markReady, gameState]);
 
   /**
-   * Update canMove based on current turn and player color
+   * Update canMove based on current turn and player color.
+   * Adjust derived state during render instead of in an effect.
    */
-  useEffect(() => {
-    if (!gameState || !yourColor) {
-      return;
+  if (gameState !== canMoveSyncKey.gameState || yourColor !== canMoveSyncKey.yourColor) {
+    setCanMoveSyncKey({ gameState, yourColor });
+    if (gameState && yourColor) {
+      const isYourTurn = yourColor === gameState.currentTurn;
+      setCanMove(isYourTurn && gameState.status === 'ONGOING');
     }
-
-    const isYourTurn = yourColor === gameState.currentTurn;
-
-    setCanMove(isYourTurn && gameState.status === 'ONGOING');
-  }, [gameState, yourColor]);
+  }
 
   return {
     gameState,

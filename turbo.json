@@ -4,28 +4,13 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": [
-        "db:generate",
-        "^build"
-      ],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        ".env*"
-      ],
-      "outputs": [
-        ".next/**",
-        "!.next/cache/**",
-        "dist/**",
-        "generated/**/*"
-      ],
-      "env": [
-        "DATABASE_URL"
-      ]
+      "dependsOn": ["db:generate", "^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**", "generated/**/*"],
+      "env": ["DATABASE_URL"]
     },
     "check-types": {
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     },
     "clean": {
       "cache": false
@@ -41,21 +26,19 @@
       "persistent": true
     },
     "dev": {
-      "dependsOn": [
-        "^db:generate"
-      ],
+      "dependsOn": ["^db:generate"],
       "cache": false,
       "persistent": true
     },
     "lint": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "env": [
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
         "NEXT_PUBLIC_BASE_URL",
+        "API_INTERNAL_URL",
         "NODE_ENV",
+        "LOG_LEVEL",
         "PORT",
         "ALLOWED_ORIGINS",
         "BETTER_AUTH_URL",
@@ -67,18 +50,14 @@
         "RESEND_EMAIL_FROM",
         "UPSTASH_REDIS_REST_URL",
         "UPSTASH_REDIS_REST_TOKEN",
-        "REDIS_URL",
-        "REDIS_HOST",
-        "REDIS_PORT"
+        "REDIS_URL"
       ]
     },
     "start": {
       "cache": false
     },
     "test": {
-      "outputs": [
-        "coverage/**"
-      ],
+      "outputs": ["coverage/**"],
       "dependsOn": []
     }
   }

@@ -17,13 +17,13 @@ datasource db {
 model User {
   id               String      @id
   name             String
-  email            String      @unique
+  email            String
   emailVerified    Boolean     @default(false)
   image            String?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @default(now()) @updatedAt
   twoFactorEnabled Boolean?    @default(false)
-  displayUsername  String      @unique
+  displayUsername  String     @unique
   username         String      @unique
   stripeCustomerId String?     @unique
   rating           Int         @default(1200)
@@ -42,6 +42,7 @@ model User {
   friendRequestsReceived Friendship[]  @relation("FriendRequestsReceived")
   playerStats            PlayerStats[]
 
+  @@unique([email])
   @@index([stripeCustomerId])
   @@map("user")
 }
@@ -49,7 +50,7 @@ model User {
 model Session {
   id        String   @id
   expiresAt DateTime
-  token     String   @unique
+  token     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   ipAddress String?
@@ -57,6 +58,7 @@ model Session {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([token])
   @@map("session")
 }
 
@@ -91,11 +93,12 @@ model Verification {
 }
 
 model TwoFactor {
-  id          String @id
+  id          String  @id
   secret      String
   backupCodes String
+  verified    Boolean @default(false)
   userId      String
-  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("twoFactor")
 }
@@ -145,7 +148,7 @@ model Game {
   // Time Control
   timeControl   String @map("time_control") // e.g., "10+0", "5+3"
   initialTime   Int    @map("initial_time") // in seconds
-  incrementTime Int    @default(0) @map("increment_time") // in seconds 
+  incrementTime Int    @default(0) @map("increment_time") // in seconds
   whiteTimeLeft Int    @map("white_time_left") // in milliseconds
   blackTimeLeft Int    @map("black_time_left") // in milliseconds
 

@@ -1,5 +1,5 @@
+import type { CapturedPieceSymbol } from '@workspace/contracts';
 import { cn } from '@workspace/ui/lib/utils';
-import type { CapturedPieceSymbol } from '@workspace/utils/types';
 import { Clock, Equal, Minus, Plus } from 'lucide-react';
 
 export {

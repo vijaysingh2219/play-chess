@@ -1,5 +1,5 @@
+import { AuthenticatedSocket, SocketError } from '@workspace/contracts';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
-import { AuthenticatedSocket, SocketError } from '@workspace/utils/types';
 import { Socket } from 'socket.io';
 
 export const errorHandler =

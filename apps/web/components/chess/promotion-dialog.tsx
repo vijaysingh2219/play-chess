@@ -7,6 +7,7 @@
  * Supports keyboard shortcuts for quick selection.
  */
 
+import type { PromotionPiece } from '@workspace/contracts';
 import { Button } from '@workspace/ui/components/button';
 import {
   Dialog,
@@ -18,7 +19,6 @@ import {
 import { Kbd } from '@workspace/ui/components/kbd';
 import { useIsMobile } from '@workspace/ui/hooks/use-mobile';
 import { cn } from '@workspace/ui/lib/utils';
-import type { PromotionPiece } from '@workspace/utils/types';
 import Image from 'next/image';
 import { useEffect } from 'react';
 

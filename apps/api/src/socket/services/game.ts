@@ -1,5 +1,5 @@
+import { ActiveGameCache, GameState, GameType, MoveData } from '@workspace/contracts';
 import { Color, GameTerminationReason, prisma, Winner } from '@workspace/db';
-import { ActiveGameCache, GameState, GameType, MoveData } from '@workspace/utils/types';
 import Bull from 'bull';
 import { Chess, PieceSymbol } from 'chess.js';
 import { redis } from '../lib/redis';

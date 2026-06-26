@@ -1,12 +1,12 @@
-import { prisma } from '@workspace/db';
-import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import {
   AuthenticatedSocket,
   getGameRoomId,
   getUserRoomId,
   ServerToClientEvents,
   TypedServer,
-} from '@workspace/utils/types';
+} from '@workspace/contracts';
+import { prisma } from '@workspace/db';
+import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { createHandler } from '../middleware/validation.middleware';
 import { PingCheckSchema } from '../schemas';
 import { gameService } from '../services/game';

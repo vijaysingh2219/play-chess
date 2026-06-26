@@ -1,9 +1,12 @@
 'use client';
 
-import { GameState } from '@workspace/utils/types';
+import { GameState } from '@workspace/contracts';
 import { Chess, type Square } from 'chess.js';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { PieceDropHandlerArgs, PieceHandlerArgs, SquareHandlerArgs } from 'react-chessboard';
+
+// Stable empty array so masked legal moves keep a constant identity.
+const EMPTY_LEGAL_MOVES: Square[] = [];
 
 interface UseChessboardOptions {
   gameState: GameState | null;
@@ -44,15 +47,9 @@ export function useChessboard(options: UseChessboardOptions): UseChessboardRetur
     [gameState?.currentFen],
   );
 
-  /**
-   * Clear selection when it's not player's turn
-   */
-  useEffect(() => {
-    if (!canMove) {
-      setSelectedSquare(null);
-      setLegalMoves([]);
-    }
-  }, [canMove]);
+  // Mask the selection when it's not the player's turn (derive, don't setState).
+  const effectiveSelectedSquare = canMove ? selectedSquare : null;
+  const effectiveLegalMoves = canMove ? legalMoves : EMPTY_LEGAL_MOVES;
 
   /**
    * Check if a move requires promotion
@@ -238,11 +235,11 @@ export function useChessboard(options: UseChessboardOptions): UseChessboardRetur
   /**
    * Generate highlight styles for squares
    */
-  const getHighlightStyles = useCallback((): Record<string, React.CSSProperties> => {
+  const getHighlightStyles = (): Record<string, React.CSSProperties> => {
     const styles: Record<string, React.CSSProperties> = {};
 
     // Highlight legal moves
-    legalMoves.forEach((square) => {
+    effectiveLegalMoves.forEach((square) => {
       styles[square] = {
         backgroundImage: 'radial-gradient(circle, rgba(0, 0, 0, 0.1) 25%, transparent 25%)',
         backgroundSize: '100% 100%',
@@ -252,8 +249,8 @@ export function useChessboard(options: UseChessboardOptions): UseChessboardRetur
     });
 
     // Highlight selected square
-    if (selectedSquare) {
-      styles[selectedSquare] = {
+    if (effectiveSelectedSquare) {
+      styles[effectiveSelectedSquare] = {
         backgroundColor: 'rgba(255, 255, 0, 0.4)',
       };
     }
@@ -276,11 +273,11 @@ export function useChessboard(options: UseChessboardOptions): UseChessboardRetur
     }
 
     return styles;
-  }, [legalMoves, selectedSquare, gameState?.moves]);
+  };
 
   return {
-    selectedSquare,
-    legalMoves,
+    selectedSquare: effectiveSelectedSquare,
+    legalMoves: effectiveLegalMoves,
     pendingPromotion,
     highlightStyles: getHighlightStyles(),
     onSquareClick,

@@ -1,3 +1,4 @@
+import { GameState } from '@workspace/contracts';
 import { Button } from '@workspace/ui/components/button';
 import {
   Dialog,
@@ -6,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
-import { GameState } from '@workspace/utils';
 import { useState } from 'react';
 
 interface GameControlsProps {

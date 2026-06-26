@@ -10,14 +10,19 @@
     "dev": "next dev --turbopack",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "prettier": "@workspace/prettier-config",
   "dependencies": {
     "@hookform/resolvers": "catalog:web",
+    "@t3-oss/env-nextjs": "catalog:core",
     "@tanstack/react-query": "catalog:web",
     "@types/qrcode": "catalog:web",
     "@workspace/auth": "workspace:*",
+    "@workspace/contracts": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/payments": "workspace:*",
     "@workspace/ui": "workspace:*",
@@ -39,15 +44,22 @@
     "zod": "catalog:core"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "catalog:dev",
+    "@testing-library/react": "catalog:dev",
+    "@testing-library/user-event": "catalog:dev",
     "@types/chess.js": "catalog:chess",
     "@types/lodash.debounce": "catalog:web",
     "@types/node": "catalog:dev",
     "@types/react": "catalog:core",
     "@types/react-dom": "catalog:core",
+    "@vitejs/plugin-react": "catalog:dev",
     "@workspace/eslint-config": "workspace:^",
     "@workspace/prettier-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "@workspace/vitest-presets": "workspace:*",
     "eslint": "catalog:eslint",
-    "typescript": "catalog:dev"
+    "jsdom": "catalog:dev",
+    "typescript": "catalog:dev",
+    "vitest": "catalog:dev"
   }
 }

@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 
 import { getCapturedPieceSymbols, useCapturedPieces } from '@/hooks/use-captured-pieces';
 import { useGameSocket } from '@/hooks/use-game-socket';
-import { MoveData } from '@workspace/utils';
+import { MoveData } from '@workspace/contracts';
 
 type CapturedPieceSymbol = {
   piece: string;
@@ -42,7 +42,7 @@ function CapturedPieceRow({
               height={100}
             />
             {count > 1 && (
-              <span className="bg-background text-foreground absolute -bottom-1 -right-1 rounded-full px-1 text-[10px] leading-none">
+              <span className="bg-background text-foreground absolute -right-1 -bottom-1 rounded-full px-1 text-[10px] leading-none">
                 {count}
               </span>
             )}

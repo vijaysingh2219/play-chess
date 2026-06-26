@@ -1,4 +1,4 @@
-import type { GameTerminationReason } from '../types/chess';
+import type { GameTerminationReason } from '@workspace/chess/types';
 
 export const getTimeControlParts = (timeControl: string): { timer: number; increment: number } => {
   const [timerStr, incrementStr] = timeControl.split('+');

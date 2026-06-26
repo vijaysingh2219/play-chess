@@ -4,18 +4,24 @@
   "private": true,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./limiters": {
+      "types": "./src/limiters/index.ts",
+      "import": "./src/limiters/index.ts",
+      "default": "./dist/limiters/index.js"
     }
   },
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc --build",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf dist generated .turbo node_modules",
     "dev": "tsc --build --watch",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix"
   },
   "prettier": "@workspace/prettier-config",
   "dependencies": {

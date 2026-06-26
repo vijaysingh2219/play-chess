@@ -185,7 +185,7 @@ export function ChallengeDialog() {
               const Icon = group.icon;
               return (
                 <div key={group.label} className="space-y-2">
-                  <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium uppercase tracking-wider">
+                  <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wider uppercase">
                     <Icon className="h-3.5 w-3.5" />
                     {group.label}
                   </div>
@@ -197,7 +197,7 @@ export function ChallengeDialog() {
                         className={cn(
                           'rounded-lg border px-3 py-2 text-sm font-medium transition-all',
                           'hover:border-primary/50 hover:bg-muted/50',
-                          'focus-visible:ring-primary focus-visible:outline-none focus-visible:ring-2',
+                          'focus-visible:ring-primary focus-visible:ring-2 focus-visible:outline-none',
                           selectedTimeControl.key === tc.key
                             ? 'border-primary bg-primary/10 text-primary'
                             : 'border-border bg-background',
@@ -254,7 +254,6 @@ export function UsernameCombobox({
 }: UsernameComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [localValue, setLocalValue] = React.useState(value);
-  const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   const debouncedChange = React.useMemo(
     () => debounce((val: string) => onValueChange(val), 300),
@@ -278,7 +277,6 @@ export function UsernameCombobox({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          ref={triggerRef}
           variant="outline"
           role="combobox"
           aria-expanded={open}
@@ -291,7 +289,7 @@ export function UsernameCombobox({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-96 p-0" style={{ width: triggerRef.current?.offsetWidth }}>
+      <PopoverContent className="w-96 p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
         <Command>
           <CommandInput
             placeholder="Type a username..."
@@ -299,7 +297,7 @@ export function UsernameCombobox({
             onValueChange={handleInputChange}
             autoFocus
           />
-          {isLoading && <Loader2 className="absolute right-3 top-3 h-5 w-5 animate-spin" />}
+          {isLoading && <Loader2 className="absolute top-3 right-3 h-5 w-5 animate-spin" />}
           <CommandList>
             <CommandEmpty>No player found.</CommandEmpty>
             <CommandGroup>

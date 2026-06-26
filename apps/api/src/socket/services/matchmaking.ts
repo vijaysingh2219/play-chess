@@ -1,6 +1,6 @@
+import { AuthenticatedSocket, QueueEntry } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
 import { parseTimeControl } from '@workspace/utils';
-import { AuthenticatedSocket, QueueEntry } from '@workspace/utils/types';
 import { redis } from '../lib/redis';
 import { gameService } from './game';
 

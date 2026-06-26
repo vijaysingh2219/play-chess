@@ -1,4 +1,6 @@
-import { emailSchema } from '../schemas';
+import { z } from 'zod';
+
+const emailSchema = z.email();
 
 export function getUsernameFromEmail(email: string): string {
   const parsed = emailSchema.safeParse(email);

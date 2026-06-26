@@ -1,5 +1,6 @@
 'use client';
 
+import type { GameTerminationReason, Winner } from '@workspace/contracts';
 import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -11,7 +12,6 @@ import {
 } from '@workspace/ui/components/dialog';
 import { cn } from '@workspace/ui/lib/utils';
 import { formatTimeControlDisplay } from '@workspace/utils/helpers';
-import type { GameTerminationReason, Winner } from '@workspace/utils/types';
 import { Color } from 'chess.js';
 import { Frown, Handshake, Swords, Trophy } from 'lucide-react';
 import { useRouter } from 'next/navigation';

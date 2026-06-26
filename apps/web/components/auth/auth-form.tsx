@@ -1,8 +1,8 @@
 'use client';
 
-import { CredentialsForm } from '@/components/auth/credentials-form';
+import { SignInForm, SignUpForm } from '@/components/auth';
 import Google from '@/components/icons/google';
-import Logo from '@/components/ui/logo';
+import { Logo } from '@/components/ui/logo';
 import { config } from '@/config/site';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { signIn } from '@workspace/auth/client';
@@ -41,13 +41,13 @@ export function AuthForm({ mode, className, ...props }: AuthFormProps) {
     <div className={cn(className)}>
       <div
         className={cn(
-          'mx-auto flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10 lg:p-12',
+          'mx-auto flex min-h-[calc(100vh-var(--header-height))] flex-col items-center justify-center gap-6 px-6 md:px-10 lg:px-12',
         )}
         {...props}
       >
         {!isMobile && (
           <Link href="/">
-            <Logo variant="auth-form" />
+            <Logo variant="default" />
           </Link>
         )}
 
@@ -61,7 +61,7 @@ export function AuthForm({ mode, className, ...props }: AuthFormProps) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-6">
+            <div className="grid gap-4">
               <div className="flex flex-col gap-4">
                 <Button
                   variant="outline"
@@ -78,7 +78,8 @@ export function AuthForm({ mode, className, ...props }: AuthFormProps) {
                 </span>
               </div>
             </div>
-            <CredentialsForm mode={mode} />
+
+            <div className="mt-2">{mode === 'sign-in' ? <SignInForm /> : <SignUpForm />}</div>
           </CardContent>
         </Card>
       </div>

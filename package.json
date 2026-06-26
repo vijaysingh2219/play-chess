@@ -8,14 +8,20 @@
     "build": "turbo build",
     "clean": "turbo clean",
     "dev": "turbo dev",
+    "docker:dev": "docker-compose up --build",
     "docker:prod": "docker-compose -f docker-compose.prod.yml up --build",
     "lint": "turbo lint",
+    "lint:fix": "turbo run lint:fix",
     "format": "prettier --write .",
+    "format:path": "prettier --write",
     "format:check": "prettier --check .",
     "check-types": "turbo check-types",
     "start": "turbo start",
     "test": "turbo test",
-    "prepare": "husky"
+    "validate": "pnpm format:check && turbo run lint check-types build test",
+    "prepare": "husky",
+    "k8s:deploy": "sh deploy.sh",
+    "k8s:verify": "sh k8s/verify.sh"
   },
   "devDependencies": {
     "@types/node": "catalog:dev",
@@ -30,12 +36,7 @@
     "turbo": "catalog:core",
     "typescript": "catalog:dev"
   },
-  "pnpm": {
-    "overrides": {
-      "@react-email/render": "1.3.2"
-    }
-  },
-  "packageManager": "pnpm@10.4.1",
+  "packageManager": "pnpm@11.1.1",
   "engines": {
     "node": ">=20"
   }

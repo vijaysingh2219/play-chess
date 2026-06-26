@@ -1,8 +1,10 @@
 'use client';
 
+import { EmailField } from '@/components/form/email';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { requestPasswordReset } from '@workspace/auth/client';
+import { ForgotPasswordFormValues, forgotPasswordSchema } from '@workspace/contracts';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -12,18 +14,15 @@ import {
   CardTitle,
 } from '@workspace/ui/components/card';
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@workspace/ui/components/form';
-import { Input } from '@workspace/ui/components/input';
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@workspace/ui/components/empty';
+import { Form } from '@workspace/ui/components/form';
 import { Spinner } from '@workspace/ui/components/spinner';
-import { forgotPasswordSchema } from '@workspace/utils/schemas';
-import { ForgotPasswordFormValues } from '@workspace/utils/types';
 import { ArrowLeft, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -71,16 +70,18 @@ export default function ForgotPasswordPage() {
 
   if (emailSent) {
     return (
-      <div className="from-background to-muted/20 flex min-h-screen items-center justify-center bg-gradient-to-b px-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
-              <Mail className="h-10 w-10 text-green-600 dark:text-green-500" />
-            </div>
-            <CardTitle className="text-2xl">Check Your Email</CardTitle>
-            <CardDescription>We&apos;ve sent you a password reset link</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 text-center">
+      <div className="from-background to-muted/20 flex min-h-[calc(100vh-var(--header-height))] items-center justify-center bg-gradient-to-b px-4">
+        <Empty className="bg-card w-full max-w-md border">
+          <EmptyHeader>
+            <EmptyMedia variant="default">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                <Mail className="h-10 w-10 text-green-600 dark:text-green-500" />
+              </div>
+            </EmptyMedia>
+            <EmptyTitle className="text-2xl">Check Your Email</EmptyTitle>
+            <EmptyDescription>We&apos;ve sent you a password reset link</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
             <p className="text-muted-foreground text-sm">
               If an account exists for <strong>{submittedEmail}</strong>, you will receive a
               password reset link shortly.
@@ -89,7 +90,7 @@ export default function ForgotPasswordPage() {
               Please check your email and follow the instructions to reset your password. The link
               will expire in 1 hour.
             </p>
-            <div className="pt-4">
+            <div className="w-full pt-4">
               <Button asChild variant="outline" className="w-full">
                 <Link href="/sign-in">
                   <ArrowLeft className="mr-2 h-4 w-4" />
@@ -97,7 +98,7 @@ export default function ForgotPasswordPage() {
                 </Link>
               </Button>
             </div>
-            <div className="pt-2">
+            <div className="w-full">
               <Button
                 variant="link"
                 onClick={() => {
@@ -109,14 +110,14 @@ export default function ForgotPasswordPage() {
                 Didn&apos;t receive the email? Try again
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </EmptyContent>
+        </Empty>
       </div>
     );
   }
 
   return (
-    <div className="from-background to-muted/20 flex min-h-screen items-center justify-center bg-gradient-to-b px-4">
+    <div className="from-background to-muted/20 flex min-h-[calc(100vh-var(--header-height))] items-center justify-center bg-gradient-to-b px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Forgot Password?</CardTitle>
@@ -128,43 +129,16 @@ export default function ForgotPasswordPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-              <FormField
+              <EmailField
                 control={form.control}
                 name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Email Address <span className="text-primary">*</span>
-                    </FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Mail className="text-muted-foreground absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform" />
-                        <Input
-                          type="email"
-                          placeholder="yourname@example.com"
-                          autoComplete="email"
-                          className="pl-10"
-                          {...field}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormDescription>
-                      Enter the email address associated with your account
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label="Email Address"
+                description="Enter the email address associated with your account"
               />
 
               <Button type="submit" className="w-full" disabled={forgotPasswordMutation.isPending}>
-                {forgotPasswordMutation.isPending ? (
-                  <>
-                    <Spinner />
-                    Sending reset link...
-                  </>
-                ) : (
-                  'Send Reset Link'
-                )}
+                {forgotPasswordMutation.isPending && <Spinner />}
+                {forgotPasswordMutation.isPending ? 'Sending reset link...' : 'Send Reset Link'}
               </Button>
 
               <div className="text-center">

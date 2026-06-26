@@ -1,12 +1,12 @@
 'use client';
 
-import { SOCKET_EVENTS } from '@workspace/utils/constants';
-import { formatTimeControlDisplay } from '@workspace/utils/helpers';
 import {
   ChallengeAcceptedPayload,
   ChallengeReceivedPayload,
   ValidationError,
-} from '@workspace/utils/types';
+} from '@workspace/contracts';
+import { SOCKET_EVENTS } from '@workspace/utils/constants';
+import { formatTimeControlDisplay } from '@workspace/utils/helpers';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';

@@ -7,8 +7,8 @@
  * - Chess.js instances
  */
 
+import { ActiveGameCache, GameState, MoveData } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
-import { ActiveGameCache, GameState, MoveData } from '@workspace/utils/types';
 import { Chess, PieceSymbol } from 'chess.js';
 
 /**

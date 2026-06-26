@@ -1,55 +1,31 @@
-import { beforeAll, describe, expect, it, jest } from '@jest/globals';
-import type { NextFunction, Request, Response } from 'express';
+import { Express } from 'express';
+import { Server } from 'http';
 import supertest from 'supertest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createAuthMiddlewareMock } from '../utils/auth-mocks';
+import { createRateLimitPackageMock } from '../utils/rate-limit-mocks';
 
-// Mock the auth module to avoid ESM issues with nanostores
-jest.mock('@workspace/auth', () => ({
+vi.mock('@workspace/auth', () => ({
   authClient: {},
   auth: {},
 }));
 
-// Mock the rate limit package
-jest.mock('@workspace/rate-limit', () => ({
-  createRateLimiter: jest.fn(() => ({
-    limit: jest.fn(() =>
-      Promise.resolve({
-        success: true,
-        limit: 100,
-        remaining: 99,
-        reset: Date.now() + 60000,
-      }),
-    ),
-  })),
-  slidingWindow: jest.fn((requests: number, window: string) => ({
-    requests,
-    window,
-  })),
-}));
+vi.mock('@workspace/rate-limit', () => createRateLimitPackageMock());
 
-// Mock the auth middleware
-jest.mock('../../middleware/auth', () => ({
-  requireAuth: jest.fn((req: Request, res: Response, next: NextFunction) => {
-    // Mock authenticated user for testing
-    Object.assign(req, {
-      user: {
-        id: 'test-user-123',
-        email: 'test@example.com',
-      },
-      session: {
-        id: 'session-123',
-      },
-    });
-    next();
-  }),
-}));
-
-import { createServer } from '../../express-server';
+vi.mock('../../middleware/auth', () => createAuthMiddlewareMock());
 
 describe('API Server', () => {
-  let app: ReturnType<typeof createServer>;
+  let app: Express;
+  let server: Server;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    const { createServer } = await import('../../server.js');
     app = createServer();
+    server = app.listen(0);
+  }, 30_000);
+
+  afterAll(() => {
+    server.close();
   });
 
   describe('GET /health', () => {
@@ -61,52 +37,58 @@ describe('API Server', () => {
       expect(response.body).toHaveProperty('timestamp');
     });
 
-    it('should return valid timestamp format', async () => {
+    it('should return a valid ISO timestamp', async () => {
       const response = await supertest(app).get('/health').expect(200);
 
-      const timestamp = new Date(response.body.timestamp);
-      expect(timestamp.toString()).not.toBe('Invalid Date');
+      expect(() => new Date(response.body.timestamp).toISOString()).not.toThrow();
     });
   });
 
-  describe('GET /non-existent-route', () => {
-    it('should return 404 for non-existent routes', async () => {
-      const response = await supertest(app).get('/non-existent-route').expect(404);
+  describe('404 handling', () => {
+    it.each(['/non-existent-route', '/api/non-existent'])(
+      'should return 404 for %s',
+      async (path) => {
+        const response = await supertest(app).get(path).expect(404);
 
-      expect(response.body).toHaveProperty('error', 'Route not found');
-      expect(response.body).toHaveProperty('path', '/non-existent-route');
-    });
-
-    it('should return 404 for non-existent API routes', async () => {
-      const response = await supertest(app).get('/api/non-existent').expect(404);
-
-      expect(response.body).toHaveProperty('error', 'Route not found');
-      expect(response.body).toHaveProperty('path', '/api/non-existent');
-    });
+        expect(response.body).toHaveProperty('error', 'Route not found');
+        expect(response.body).toHaveProperty('path', path);
+      },
+    );
   });
 
-  describe('Server Configuration', () => {
-    it('should set correct CORS headers', async () => {
-      const response = await supertest(app).get('/health');
+  describe('CORS', () => {
+    beforeAll(async () => vi.spyOn(console, 'error').mockImplementation(() => {}));
+    afterAll(async () => vi.restoreAllMocks());
 
-      // Check for CORS headers
-      expect(response.headers).toHaveProperty('access-control-allow-credentials');
-    });
-
-    it('should parse JSON request bodies', async () => {
+    it('should set CORS headers for allowed origin', async () => {
       const response = await supertest(app)
-        .post('/api/test')
-        .send({ test: 'data' })
-        .set('Content-Type', 'application/json');
+        .get('/health')
+        .set('Origin', 'https://example.com')
+        .expect(200);
 
-      // Should get 404 since route doesn't exist, but body should be parsed
-      expect(response.status).toBe(404);
+      expect(response.headers['access-control-allow-origin']).toBe('https://example.com');
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
     });
 
-    it('should have security headers', async () => {
+    it('should reject disallowed origin with CORS error', async () => {
+      const response = await supertest(app).get('/health').set('Origin', 'https://evil.example');
+
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+      expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+    });
+
+    it('should block requests with missing origin by default', async () => {
       const response = await supertest(app).get('/health');
 
-      // Helmet should add security headers
+      expect(response.headers['access-control-allow-origin']).toBeUndefined();
+      expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+    });
+  });
+
+  describe('Security headers', () => {
+    it('should set helmet security headers', async () => {
+      const response = await supertest(app).get('/health');
+
       expect(response.headers).toHaveProperty('x-dns-prefetch-control');
       expect(response.headers).toHaveProperty('x-frame-options');
     });

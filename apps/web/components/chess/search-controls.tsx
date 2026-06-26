@@ -4,7 +4,7 @@ import { Button } from '@workspace/ui/components/button';
 import { cn } from '@workspace/ui/lib/utils';
 import { Clock, Timer, Zap } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 interface SearchControlsProps {
   findMatch: (timeControl: string) => void;
@@ -48,11 +48,14 @@ export function SearchControls({ findMatch, leaveQueue, isSearching }: SearchCon
   const [selectedTimeControl, setSelectedTimeControl] = useState<TimeControl>(
     timeControl || defaultTimeControl,
   );
+  const [prevTimeControlKey, setPrevTimeControlKey] = useState(timeControl?.key);
 
-  useEffect(() => {
-    if (!timeControl) return;
+  // Sync the selection when the URL time-control param changes. Adjust state
+  // during render instead of in an effect.
+  if (timeControl && timeControl.key !== prevTimeControlKey) {
+    setPrevTimeControlKey(timeControl.key);
     setSelectedTimeControl(timeControl);
-  }, [timeControl]);
+  }
 
   const handlePlay = () => {
     findMatch(selectedTimeControl.key);
@@ -71,7 +74,7 @@ export function SearchControls({ findMatch, leaveQueue, isSearching }: SearchCon
             const Icon = group.icon;
             return (
               <div key={group.label} className="space-y-2">
-                <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium uppercase tracking-wider">
+                <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wider uppercase">
                   <Icon className="h-3.5 w-3.5" />
                   {group.label}
                 </div>
@@ -83,7 +86,7 @@ export function SearchControls({ findMatch, leaveQueue, isSearching }: SearchCon
                       className={cn(
                         'rounded-lg border px-3 py-2.5 text-sm font-medium transition-all',
                         'hover:border-primary/50 hover:bg-muted/50',
-                        'focus-visible:ring-primary focus-visible:outline-none focus-visible:ring-2',
+                        'focus-visible:ring-primary focus-visible:ring-2 focus-visible:outline-none',
                         selectedTimeControl.key === tc.key
                           ? 'border-primary bg-primary/10 text-primary'
                           : 'border-border bg-background',

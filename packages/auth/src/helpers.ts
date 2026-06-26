@@ -1,36 +1,21 @@
 import { prisma } from '@workspace/db';
 import { getUsernameFromEmail } from '@workspace/utils/helpers';
 
-/**
- * Generates a unique username from an email address
- * Uses the utility function to extract base username and appends number if taken
- */
-export async function generateUniqueUsername(email: string): Promise<string> {
-  const baseUsername = getUsernameFromEmail(email);
-  let username = baseUsername;
-  let counter = 1;
+// Derive a unique username from the email's local part for sign-ups that don't
+// provide one (e.g. Google).
+export async function generateUniqueUsername(email: string): Promise<string | undefined> {
+  const base = getUsernameFromEmail(email);
+  if (!base) return undefined;
 
-  try {
-    // Check if username exists in database
-    let existingUser = await prisma.user.findUnique({
-      where: { username },
+  // Try the clean base first; on collision, append a random 4-digit suffix.
+  let candidate = base;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const taken = await prisma.user.findUnique({
+      where: { username: candidate },
       select: { id: true },
     });
-
-    // Keep incrementing counter until we find an available username
-    while (existingUser) {
-      username = `${baseUsername}${counter}`;
-      counter++;
-      existingUser = await prisma.user.findUnique({
-        where: { username },
-        select: { id: true },
-      });
-    }
-  } catch (error) {
-    console.error('Error checking username uniqueness:', error);
-    // Fallback to timestamped username if error occurs
-    username = `${baseUsername}${Date.now()}`;
+    if (!taken) return candidate;
+    candidate = `${base}${Math.floor(1000 + Math.random() * 9000)}`;
   }
-
-  return username;
+  return candidate;
 }

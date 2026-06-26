@@ -10,6 +10,7 @@ import { useGameClock } from '@/hooks/use-game-clock';
 import { useGameSocket } from '@/hooks/use-game-socket';
 import { useLatencyDisplay } from '@/hooks/use-latency-display';
 import { usePlayerPositions } from '@/hooks/use-player-positions';
+import type { GameTerminationReason, PromotionPiece, Winner } from '@workspace/contracts';
 import { Button } from '@workspace/ui/components/button';
 import {
   Dialog,
@@ -22,7 +23,6 @@ import { Kbd } from '@workspace/ui/components/kbd';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip';
 import { useIsMobile } from '@workspace/ui/hooks/use-mobile';
 import { cn } from '@workspace/ui/lib/utils';
-import type { GameTerminationReason, PromotionPiece, Winner } from '@workspace/utils/types';
 import { Chess } from 'chess.js';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import Image from 'next/image';
@@ -93,6 +93,13 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
     },
   });
 
+  // Last inputs used to sync board orientation (not the whole gameState, so
+  // moves don't reset a manual flip).
+  const [prevOrientationKey, setPrevOrientationKey] = useState<{
+    whitePlayerId?: string;
+    userId?: string;
+  }>({});
+
   // Custom hooks for common logic
   const displayedLatency = useLatencyDisplay(latency);
 
@@ -123,6 +130,12 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
   // Compute move list and current viewing position
   const moveList = useMemo(() => gameState?.moves || [], [gameState?.moves]);
   const totalMoves = moveList.length;
+
+  // Snap back to live when the viewed index falls out of range (new moves).
+  if (viewingMoveIndex !== null && viewingMoveIndex >= totalMoves) {
+    setViewingMoveIndex(null);
+  }
+
   const isViewingHistory = viewingMoveIndex !== null;
   const currentViewIndex = isViewingHistory ? viewingMoveIndex : totalMoves - 1;
 
@@ -173,20 +186,16 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
     setViewingMoveIndex(null);
   }, []);
 
-  // Reset to latest position when new moves come in
-  useEffect(() => {
-    if (isViewingHistory && viewingMoveIndex >= totalMoves) {
-      setViewingMoveIndex(null);
-    }
-  }, [totalMoves, isViewingHistory, viewingMoveIndex]);
-
-  // Set initial board orientation based on player color
-  useEffect(() => {
-    if (gameState) {
-      const myColor = gameState.whitePlayerId === user?.id ? 'w' : 'b';
-      setBoardOrientation(myColor === 'w' ? 'white' : 'black');
-    }
-  }, [gameState, user]);
+  // Sync board orientation when the white-player assignment or user changes.
+  if (
+    gameState &&
+    (gameState.whitePlayerId !== prevOrientationKey.whitePlayerId ||
+      user?.id !== prevOrientationKey.userId)
+  ) {
+    setPrevOrientationKey({ whitePlayerId: gameState.whitePlayerId, userId: user?.id });
+    const myColor = gameState.whitePlayerId === user?.id ? 'w' : 'b';
+    setBoardOrientation(myColor === 'w' ? 'white' : 'black');
+  }
 
   // Chessboard interaction logic
   const {
@@ -224,7 +233,7 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
 
   // Render chessboard
   const chessboard = (
-    <div className="mx-auto aspect-square w-full max-w-[625px] rounded-xl border-2 shadow-lg">
+    <div className="mx-auto aspect-square w-full max-w-156.25 rounded-xl border-2 shadow-lg">
       <ReactChessboard
         options={{
           position: viewingFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -365,7 +374,7 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
         <h3 className="text-sm font-medium">Move History</h3>
       </div>
       <div
-        className="max-h-[400px] overflow-y-auto"
+        className="`max-h-100 overflow-y-auto"
         role="log"
         aria-label="Chess move history"
         aria-live="polite"

@@ -1,11 +1,18 @@
 import { createRateLimiter, slidingWindow, type Ratelimit } from '@workspace/rate-limit';
 import type { NextFunction, Request, Response } from 'express';
 
+/**
+ * Rate Limiters
+ * Define different rate limiters for different API endpoints
+ */
+
+// Global API rate limiter: 100 requests per minute (lenient, prevents abuse)
 const globalApiLimiter = createRateLimiter({
   prefix: 'api-global',
   limiter: slidingWindow(100, '1 m'),
 });
 
+// User endpoints rate limiter: 60 requests per minute
 const userApiLimiter = createRateLimiter({
   prefix: 'api-user',
   limiter: slidingWindow(60, '1 m'),
@@ -42,17 +49,24 @@ const createRateLimitMiddleware = (
 
       next();
     } catch (error) {
-      console.error('Rate limit middleware error:', error);
+      req.log.error({ err: error }, 'Rate limit middleware error');
+      // Fail open - allow request to proceed if rate limiting fails
       next();
     }
   };
 };
 
+/**
+ * Exported middleware functions
+ */
+
+// Global rate limiter - use this on all routes (by IP)
 export const globalRateLimit = createRateLimitMiddleware(
   globalApiLimiter,
   (req) => req.ip || 'anonymous',
 );
 
+// User-specific rate limiter (by user ID)
 export const userRateLimit = createRateLimitMiddleware(
   userApiLimiter,
   (req) => req.user?.id || req.ip || 'anonymous',

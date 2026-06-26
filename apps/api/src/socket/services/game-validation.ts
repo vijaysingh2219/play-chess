@@ -1,5 +1,5 @@
+import { GameType } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
-import { GameType } from '@workspace/utils/types';
 import { playerManager } from './player-manager';
 
 const GAME_LIMITS = {

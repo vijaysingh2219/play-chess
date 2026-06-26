@@ -4,24 +4,19 @@
   "private": true,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./constants": {
-      "types": "./dist/constants/index.d.ts",
+      "types": "./src/constants/index.ts",
+      "import": "./src/constants/index.ts",
       "default": "./dist/constants/index.js"
     },
     "./helpers": {
-      "types": "./dist/helpers/index.d.ts",
+      "types": "./src/helpers/index.ts",
+      "import": "./src/helpers/index.ts",
       "default": "./dist/helpers/index.js"
-    },
-    "./schemas": {
-      "types": "./dist/schemas/index.d.ts",
-      "default": "./dist/schemas/index.js"
-    },
-    "./types": {
-      "types": "./dist/types/index.d.ts",
-      "default": "./dist/types/index.js"
     }
   },
   "scripts": {
@@ -29,21 +24,19 @@
     "check-types": "tsc --noEmit",
     "clean": "rm -rf dist .turbo node_modules",
     "dev": "tsc --build --watch",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix"
   },
   "prettier": "@workspace/prettier-config",
   "dependencies": {
     "@workspace/chess": "workspace:*",
-    "chess.js": "catalog:chess",
     "date-fns": "catalog:core",
-    "socket.io": "catalog:server",
     "zod": "catalog:core"
   },
   "devDependencies": {
-    "@types/chess.js": "catalog:chess",
     "@workspace/eslint-config": "workspace:^",
     "@workspace/prettier-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "typescript": "5.9.2"
+    "typescript": "catalog:dev"
   }
 }

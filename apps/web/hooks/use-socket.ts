@@ -1,8 +1,8 @@
 'use client';
 
 import { useSession } from '@workspace/auth/client';
+import { ClientToServerEvents, ServerToClientEvents } from '@workspace/contracts';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
-import { ClientToServerEvents, ServerToClientEvents } from '@workspace/utils/types';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
@@ -35,6 +35,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [latency, setLatency] = useState(0);
+  const [socket, setSocket] = useState<TypedSocket | null>(null);
 
   const socketRef = useRef<TypedSocket | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -68,14 +69,16 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
    * Disconnect socket
    */
   const disconnect = useCallback(() => {
-    if (socketRef.current) {
-      // Remove all listeners to avoid memory leaks
-      socketRef.current.removeAllListeners();
-      socketRef.current.disconnect();
-      socketRef.current = null;
-      stopPingCheck();
-    }
-  }, [stopPingCheck]);
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    socketRef.current = null;
+    // Disconnecting fires the DISCONNECT handler, which resets the React state
+    // (socket, isConnected, isAuthenticated) and stops the ping check.
+    socket.disconnect();
+    // Remove all listeners to avoid memory leaks once state has been reset.
+    socket.removeAllListeners();
+  }, []);
 
   /**
    * Initialize socket connection
@@ -104,6 +107,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     // Connection event handlers
     socket.on(SOCKET_EVENTS.CONNECT, () => {
       console.log('[Socket] Connected:', socket.id);
+      setSocket(socket);
       setIsConnected(true);
       onConnect?.();
       startPingCheck();
@@ -111,6 +115,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
 
     socket.on(SOCKET_EVENTS.DISCONNECT, (reason) => {
       console.log('[Socket] Disconnected:', reason);
+      setSocket(null);
       setIsConnected(false);
       setIsAuthenticated(false);
       stopPingCheck();
@@ -169,7 +174,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
   }, [autoConnect, hasSession, connect, disconnect]);
 
   return {
-    socket: socketRef.current,
+    socket,
     isConnected,
     isAuthenticated,
     latency,

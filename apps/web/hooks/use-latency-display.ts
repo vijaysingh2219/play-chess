@@ -1,17 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 /**
- * Custom hook to manage latency display with smooth updates
- * Prevents rapid flickering of latency values
+ * Smooths latency display by retaining the last non-null value.
  */
 export function useLatencyDisplay(latency: number | null | undefined): number | null {
   const [displayedLatency, setDisplayedLatency] = useState<number | null>(null);
+  const [prevLatency, setPrevLatency] = useState(latency);
 
-  useEffect(() => {
+  // Adjust derived state during render instead of in an effect.
+  if (latency !== prevLatency) {
+    setPrevLatency(latency);
     if (latency !== null && latency !== undefined) {
       setDisplayedLatency(latency);
     }
-  }, [latency]);
+  }
 
   return displayedLatency;
 }

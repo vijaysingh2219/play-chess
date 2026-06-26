@@ -2,6 +2,7 @@
 
 import { PlayerInfo } from '@/components/game/player-info';
 import { DisplayUser } from '@/types';
+import { GameState } from '@workspace/contracts';
 import { Button } from '@workspace/ui/components/button';
 import {
   Tooltip,
@@ -10,7 +11,6 @@ import {
   TooltipTrigger,
 } from '@workspace/ui/components/tooltip';
 import { cn } from '@workspace/ui/lib/utils';
-import { GameState } from '@workspace/utils';
 import { Repeat2 } from 'lucide-react';
 import type React from 'react';
 import { ReactNode } from 'react';
@@ -93,7 +93,7 @@ export const GameLayout: React.FC<GameLayoutProps> = ({
               {chessboard}
 
               {/* Board toolbar - overlay on desktop only */}
-              <div className="absolute bottom-2 right-2 hidden items-center gap-1 sm:flex">
+              <div className="absolute right-2 bottom-2 hidden items-center gap-1 sm:flex">
                 {latency !== undefined && (
                   <Tooltip>
                     <TooltipTrigger asChild>

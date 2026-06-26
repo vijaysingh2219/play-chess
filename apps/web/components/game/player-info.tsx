@@ -1,10 +1,10 @@
 import { UserProfileDialog } from '@/components/profile/user-profile-popover';
 import { useRequiredAuthUser } from '@/hooks/use-auth-user';
 import { DisplayUser } from '@/types';
+import type { GameState } from '@workspace/contracts';
 import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
 import { cn } from '@workspace/ui/lib/utils';
 import { formatTime } from '@workspace/utils/helpers';
-import type { GameState } from '@workspace/utils/types';
 import { Clock } from 'lucide-react';
 import { InlineCapturedPieces } from './captured-pieces';
 

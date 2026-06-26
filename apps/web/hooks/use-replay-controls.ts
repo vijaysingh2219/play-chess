@@ -1,5 +1,5 @@
 import { SoundManager } from '@/lib/sound-manager';
-import { MoveData, STARTING_FEN } from '@workspace/utils';
+import { MoveData, STARTING_FEN } from '@workspace/contracts';
 import { Chess } from 'chess.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -52,8 +52,18 @@ export function useReplayControls({
   const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1);
   const [fen, setFen] = useState<string>(STARTING_FEN);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [prevMoves, setPrevMoves] = useState(moves);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const currentMoveIndexRef = useRef<number>(-1);
+
+  // Reset to the starting position when a new set of moves is loaded.
+  // Adjust state during render instead of in an effect.
+  if (moves !== prevMoves) {
+    setPrevMoves(moves);
+    if (moves.length > 0) {
+      setCurrentMoveIndex(-1);
+      setFen(STARTING_FEN);
+    }
+  }
 
   const playMoveSound = useCallback((move: MoveData) => {
     // Create a chess instance to check game state after the move
@@ -77,11 +87,9 @@ export function useReplayControls({
   const goToMove = useCallback(
     (index: number, shouldPlaySound = true) => {
       const safeIndex = Math.max(-1, Math.min(index, moves.length - 1));
-      const previousIndex = currentMoveIndexRef.current;
+      const previousIndex = currentMoveIndex;
 
-      // Update both state and ref
       setCurrentMoveIndex(safeIndex);
-      currentMoveIndexRef.current = safeIndex;
 
       if (safeIndex === -1) {
         setFen(STARTING_FEN);
@@ -94,7 +102,7 @@ export function useReplayControls({
         }
       }
     },
-    [moves, playMoveSound],
+    [moves, currentMoveIndex, playMoveSound],
   );
 
   /**
@@ -110,15 +118,6 @@ export function useReplayControls({
   }, []);
 
   /**
-   * Reset to start when moves are loaded
-   */
-  useEffect(() => {
-    if (moves.length > 0) {
-      goToMove(-1, false);
-    }
-  }, [moves, goToMove]);
-
-  /**
    * Auto-play effect
    */
   useEffect(() => {
@@ -129,9 +128,6 @@ export function useReplayControls({
           if (nextIndex < moves.length) {
             const move = moves[nextIndex];
             setFen(move?.fenAfter ?? STARTING_FEN);
-
-            // Update the ref
-            currentMoveIndexRef.current = nextIndex;
 
             // Play sound for the move
             if (move) {

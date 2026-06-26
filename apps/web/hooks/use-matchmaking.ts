@@ -1,12 +1,12 @@
 'use client';
 
-import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import {
   FindMatchPayload,
   MatchFoundPayload,
   MatchmakingError,
   QueueStatusPayload,
-} from '@workspace/utils/types';
+} from '@workspace/contracts';
+import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { useCallback, useEffect, useState } from 'react';
 import { useSocket } from './use-socket';
 

@@ -4,6 +4,7 @@ import { customPieces } from '@/components/chess/custom-pieces';
 import { GameLayout, PlayerPosition } from '@/components/chess/game-layout';
 import { SearchControls } from '@/components/chess/search-controls';
 import { useRequiredAuthUser } from '@/hooks/use-auth-user';
+import { useLatencyDisplay } from '@/hooks/use-latency-display';
 import { useMatchmaking } from '@/hooks/use-matchmaking';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
@@ -20,13 +21,7 @@ export const NewOnlineGame: React.FC<NewOnlineGameProps> = ({ className }) => {
 
   const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
   const { isSearching, matchFound, findMatch, cancelSearch, latency } = useMatchmaking();
-  const [displayedLatency, setDisplayedLatency] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (latency !== null && latency !== undefined) {
-      setDisplayedLatency(latency);
-    }
-  }, [latency]);
+  const displayedLatency = useLatencyDisplay(latency);
 
   useEffect(() => {
     if (matchFound) {
@@ -64,7 +59,7 @@ export const NewOnlineGame: React.FC<NewOnlineGameProps> = ({ className }) => {
   }, [user]);
 
   const chessboard = (
-    <div className="mx-auto aspect-square w-full max-w-[625px] rounded-xl border-2 shadow-lg">
+    <div className="mx-auto aspect-square w-full max-w-156.25 rounded-xl border-2 shadow-lg">
       <ReactChessboard
         options={{
           position: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',

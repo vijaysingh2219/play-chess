@@ -1,4 +1,4 @@
-import { AuthenticatedSocket } from '@workspace/utils/types';
+import { AuthenticatedSocket } from '@workspace/contracts';
 import { z } from 'zod';
 import { handleSocketError } from './error.middleware';
 

@@ -1,7 +1,7 @@
 import { auth } from '@workspace/auth/server'; // Your Better Auth instance
+import { AuthenticatedSocket } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
-import { AuthenticatedSocket } from '@workspace/utils/types';
 import { Socket } from 'socket.io';
 
 export const authMiddleware = async (

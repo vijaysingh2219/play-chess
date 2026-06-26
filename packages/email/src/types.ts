@@ -23,3 +23,22 @@ export interface ResetPasswordProps {
   name: string;
   resetUrl: string;
 }
+
+export interface WelcomeEmailProps {
+  name: string;
+  getStartedUrl: string;
+}
+
+export type EmailProps =
+  | VerificationEmailProps
+  | ChangeEmailProps
+  | ResetPasswordProps
+  | WelcomeEmailProps;
+
+// Discriminated union for type-safe email type -> props mapping
+export type EmailPropsMap = {
+  'verify-email': VerificationEmailProps;
+  'change-email': ChangeEmailProps;
+  'reset-password': ResetPasswordProps;
+  welcome: WelcomeEmailProps;
+};

@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: play-chess-api-deployment
+  namespace: play-chess
+  labels:
+    app: play-chess-api
+spec:
+  # replicas is intentionally omitted: the HorizontalPodAutoscaler
+  # (k8s/api-hpa.yml) owns this value. Setting it here would reset the
+  # pod count on every `kubectl apply`, fighting the autoscaler.
+  selector:
+    matchLabels:
+      app: play-chess-api
+  template:
+    metadata:
+      labels:
+        app: play-chess-api
+    spec:
+      containers:
+        - name: play-chess-api
+          image: your-dockerhub-username/play-chess-api:latest
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - secretRef:
+                name: play-chess-api-env
+            - configMapRef:
+                name: play-chess-config
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 20

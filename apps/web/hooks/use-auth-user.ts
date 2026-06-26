@@ -2,9 +2,7 @@ import { useSession } from '@workspace/auth/client';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-export type AuthUser = NonNullable<ReturnType<typeof useSession>['data']>['user'] & {
-  rating?: number | null;
-};
+export type AuthUser = NonNullable<ReturnType<typeof useSession>['data']>['user'];
 
 interface UseAuthUserOptions {
   redirectOnUnauthenticated?: boolean;
@@ -47,17 +45,62 @@ export function useAuthUser(options?: UseAuthUserOptions): UseAuthUserReturn {
   const pathname = usePathname();
 
   const shouldRedirect = options?.redirectOnUnauthenticated ?? false;
-  const redirectTo = options?.redirectTo ?? '/';
+  const redirectTo = options?.redirectTo ?? '/sign-in';
 
   // Only redirect if explicitly enabled and not on auth pages
   useEffect(() => {
-    if (shouldRedirect && !session.isPending && !session.data?.user) {
-      // Don't redirect if already on auth pages
-      if (!pathname.startsWith('/sign-in') && !pathname.startsWith('/sign-up')) {
-        router.push(redirectTo);
-      }
+    if (!shouldRedirect) return;
+    if (session.isPending) return;
+    if (session.data?.user) return;
+
+    // Avoid redirect loop by not redirecting if already on sign-in or sign-up page
+    if (pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up')) {
+      return;
     }
+
+    router.replace(redirectTo);
   }, [shouldRedirect, session.isPending, session.data?.user, router, pathname, redirectTo]);
+
+  useEffect(() => {
+    if (!session.data?.user) return;
+
+    let interval: NodeJS.Timeout;
+
+    const ping = () => {
+      fetch('/api/session/ping', { method: 'POST' })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Session ping failed');
+          }
+        })
+        .catch(() => {});
+    };
+
+    const startInterval = () => {
+      interval = setInterval(ping, 5 * 60 * 1000);
+    };
+
+    const stopInterval = () => {
+      if (interval) clearInterval(interval);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        ping(); // refresh immediately
+        startInterval();
+      } else {
+        stopInterval();
+      }
+    };
+
+    handleVisibilityChange();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopInterval();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [session.data?.user]);
 
   return {
     user: session.data?.user || null,
@@ -82,16 +125,7 @@ export function useRequiredAuthUser():
     redirectOnUnauthenticated: true,
   });
 
-  if (isLoading) {
-    return {
-      user: null,
-      isLoading: true,
-      error,
-      refetch,
-    };
-  }
-
-  if (!isAuthenticated || !user) {
+  if (isLoading || !isAuthenticated || !user) {
     return {
       user: null,
       isLoading: true,
@@ -102,7 +136,7 @@ export function useRequiredAuthUser():
 
   // This hook guarantees user is not null when not loading
   return {
-    user: user!,
+    user,
     isLoading: false,
     error,
     refetch,
