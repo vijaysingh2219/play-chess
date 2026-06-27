@@ -1,4 +1,5 @@
 import { AuthenticatedSocket, getUserRoomId, TypedServer } from '@workspace/contracts';
+import { logger } from '@workspace/logger';
 import { parseTimeControl } from '@workspace/utils';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -8,13 +9,15 @@ import { validateMatchmakingEligibility } from '../services/game-validation';
 import { matchmakingService } from '../services/matchmaking';
 import { playerManager } from '../services/player-manager';
 
+const log = logger.child({ module: 'matchmaking' });
+
 export function setupMatchmakingHandlers(io: TypedServer): void {
   io.on('connection', (socket: AuthenticatedSocket) => {
     // Find match
     socket.on(
       SOCKET_EVENTS.FIND_MATCH,
       createHandler(socket, FindMatchSchema, async (payload) => {
-        console.log(`[Matchmaking] ${socket.data.username} requested a match`, payload);
+        socket.data.log.info({ payload }, 'match requested');
         await handleFindMatch(io, socket, payload);
       }),
     );
@@ -40,7 +43,7 @@ async function handleFindMatch(
   // Time control is already validated by Zod schema
   await validateMatchmakingEligibility(userId);
 
-  console.log(`[Matchmaking] ${socket.data.username} looking for ${timeControl} game`);
+  socket.data.log.info({ timeControl }, 'looking for game');
 
   await playerManager.setUserStatus(userId, 'matchmaking');
 
@@ -70,8 +73,16 @@ async function tryMatchmaking(io: TypedServer, userId: string): Promise<boolean>
     return false;
   }
 
-  console.log(
-    `[Matchmaking] Match found: ${player.username} (${player.rating}) vs ${opponent.username} (${opponent.rating})`,
+  log.info(
+    {
+      player: { userId: player.userId, username: player.username, rating: player.rating },
+      opponent: {
+        userId: opponent.userId,
+        username: opponent.username,
+        rating: opponent.rating,
+      },
+    },
+    'match found',
   );
 
   const gameData = await matchmakingService.createMatchedGame(player, opponent);
@@ -156,7 +167,7 @@ function startMatchmakingLoop(io: TypedServer, socket: AuthenticatedSocket): voi
         socket.emit(SOCKET_EVENTS.QUEUE_STATUS, updatedStatus);
       }
     } catch (error) {
-      console.error('[Matchmaking] Loop error:', error);
+      socket.data.log.error({ err: error }, 'matchmaking loop error');
       clearInterval(intervalId);
       isSearching = false;
     }
@@ -190,7 +201,7 @@ async function handleCancelMatchmaking(socket: AuthenticatedSocket): Promise<voi
   const removed = await matchmakingService.removeFromQueue(userId);
 
   if (removed) {
-    console.log(`[Matchmaking] ${socket.data.username} cancelled matchmaking`);
+    socket.data.log.info('matchmaking cancelled');
 
     const activeGame = await playerManager.getUserActiveGame(userId);
     if (!activeGame) {

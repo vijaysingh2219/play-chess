@@ -673,6 +673,9 @@ importers:
       '@workspace/chess':
         specifier: workspace:*
         version: link:../chess
+      '@workspace/logger':
+        specifier: workspace:*
+        version: link:../logger
       chess.js:
         specifier: catalog:chess
         version: 1.4.0

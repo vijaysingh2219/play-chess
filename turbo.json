@@ -7,7 +7,16 @@
       "dependsOn": ["db:generate", "^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**", "generated/**/*"],
-      "env": ["DATABASE_URL"]
+      "env": [
+        "DATABASE_URL",
+        "NODE_ENV",
+        "API_INTERNAL_URL",
+        "NEXT_PUBLIC_API_URL",
+        "BETTER_AUTH_SECRET",
+        "STRIPE_SECRET_KEY",
+        "UPSTASH_REDIS_REST_URL",
+        "UPSTASH_REDIS_REST_TOKEN"
+      ]
     },
     "check-types": {
       "dependsOn": ["^build"]
@@ -39,8 +48,13 @@
         "API_INTERNAL_URL",
         "NODE_ENV",
         "LOG_LEVEL",
+        "SERVICE_NAME",
+        "SERVICE_VERSION",
+        "GIT_SHA",
+        "POD_NAME",
         "PORT",
         "ALLOWED_ORIGINS",
+        "CORS_ALLOW_MISSING_ORIGIN",
         "BETTER_AUTH_URL",
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",

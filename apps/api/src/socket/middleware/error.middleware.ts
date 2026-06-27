@@ -1,6 +1,9 @@
 import { AuthenticatedSocket, SocketError } from '@workspace/contracts';
+import { logger } from '@workspace/logger';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { Socket } from 'socket.io';
+
+const log = logger.child({ module: 'socket:error' });
 
 export const errorHandler =
   <T>(socket: Socket, handler: (...args: T[]) => Promise<void> | void) =>
@@ -10,7 +13,7 @@ export const errorHandler =
     } catch (error) {
       // Validate socket before using
       if (!socket || typeof socket.emit !== 'function' || typeof socket.on !== 'function') {
-        console.error('[Socket Error] Invalid socket instance passed to errorHandler:', socket);
+        log.error('invalid socket instance passed to errorHandler');
         return;
       }
       handleSocketError(socket, error);
@@ -18,7 +21,7 @@ export const errorHandler =
   };
 
 export const handleSocketError = (socket: Socket, error: unknown): void => {
-  console.error('[Socket Error]', error);
+  (socket.data?.log ?? log).error({ err: error }, 'socket handler error');
 
   let socketError: SocketError;
 
@@ -122,7 +125,7 @@ export const asyncHandler = <T>(
       await fn(...args);
     } catch (error) {
       if (!socket || typeof socket.emit !== 'function' || typeof socket.on !== 'function') {
-        console.error('[Socket Error] Could not identify socket instance:', socket);
+        log.error('could not identify socket instance');
         return;
       }
       handleSocketError(socket, error);

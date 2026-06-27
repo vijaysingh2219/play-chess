@@ -1,8 +1,12 @@
 import { auth } from '@workspace/auth/server'; // Your Better Auth instance
 import { AuthenticatedSocket } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
+import { logger } from '@workspace/logger';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { Socket } from 'socket.io';
+import { AuthenticationError } from './error.middleware';
+
+const log = logger.child({ module: 'socket:auth' });
 
 export const authMiddleware = async (
   socket: Socket,
@@ -19,7 +23,7 @@ export const authMiddleware = async (
     const authSession = await auth.api.getSession({ headers });
     const session = authSession?.session;
     if (!session) {
-      return next(new Error('AUTHENTICATION_ERROR: Invalid session'));
+      return next(new AuthenticationError('Invalid session'));
     }
 
     const user = await prisma.user.findUnique({
@@ -27,7 +31,7 @@ export const authMiddleware = async (
     });
 
     if (!user) {
-      return next(new Error('AUTHENTICATION_ERROR: User not found'));
+      return next(new AuthenticationError('User not found'));
     }
 
     // Attach user data to socket
@@ -40,6 +44,12 @@ export const authMiddleware = async (
       rating: user.rating,
       sessionId: session.id,
       connectedAt: new Date(),
+      log: logger.child({
+        module: 'socket',
+        socketId: socket.id,
+        userId: user.id,
+        username: user.username,
+      }),
     };
 
     // Update last seen timestamp
@@ -49,12 +59,12 @@ export const authMiddleware = async (
     });
 
     // Log successful authentication
-    console.log(`[Auth] User authenticated: ${user.username} (${user.id})`);
+    authSocket.data.log.info('authenticated');
 
     next();
   } catch (error) {
-    console.error('[Auth] Authentication error:', error);
-    next(new Error('AUTHENTICATION_ERROR: Internal server error'));
+    log.error({ err: error }, 'authentication failed');
+    next(new AuthenticationError('Internal server error'));
   }
 };
 

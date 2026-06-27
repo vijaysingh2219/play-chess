@@ -1,3 +1,4 @@
+import type { Logger } from '@workspace/logger';
 import { PieceSymbol } from 'chess.js';
 import { Server, Socket } from 'socket.io';
 import { Color, GameStatus, GameTerminationReason, Winner } from './chess';
@@ -18,6 +19,8 @@ export interface SocketData {
   sessionId: string;
   connectedAt: Date;
   lastPingAt?: Date;
+  /** Per-connection child logger, bound with module/socketId/userId/username. */
+  log: Logger;
 }
 
 /**

@@ -1,11 +1,13 @@
 import { AuthenticatedSocket, getUserRoomId, TypedServer } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
+import { logger } from '@workspace/logger';
 import { parseTimeControl } from '@workspace/utils';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import {
   cancelChallengeExpiration,
   scheduleChallengeExpiration,
 } from '../../queues/challenge.queue';
+import { ValidationError } from '../middleware/error.middleware';
 import { createHandler } from '../middleware/validation.middleware';
 import {
   ChallengeCreatePayload,
@@ -14,6 +16,8 @@ import {
   ChallengeResponseSchema,
 } from '../schemas';
 import { gameService } from '../services/game';
+
+const log = logger.child({ module: 'challenge' });
 
 async function hasActiveSubscription(userId: string): Promise<boolean> {
   try {
@@ -27,7 +31,7 @@ async function hasActiveSubscription(userId: string): Promise<boolean> {
     });
     return !!subscription;
   } catch (error) {
-    console.error('[Subscription Check] Error checking subscription:', error);
+    log.error({ err: error, userId }, 'subscription check failed');
     return false;
   }
 }
@@ -74,8 +78,8 @@ async function handleCreateChallenge(
 
   const hasSub = await hasActiveSubscription(senderId);
   if (!hasSub) {
-    throw new Error(
-      'VALIDATION_ERROR: Challenging players is a Pro feature. Please upgrade your membership to send challenges.',
+    throw new ValidationError(
+      'Challenging players is a Pro feature. Please upgrade your membership to send challenges.',
     );
   }
 
@@ -87,11 +91,11 @@ async function handleCreateChallenge(
   });
 
   if (!receiver) {
-    throw new Error('VALIDATION_ERROR: Receiver not found');
+    throw new ValidationError('Receiver not found');
   }
 
   if (senderId === receiverId) {
-    throw new Error('VALIDATION_ERROR: Cannot challenge yourself');
+    throw new ValidationError('Cannot challenge yourself');
   }
 
   // Check if either user has blocked the other
@@ -105,7 +109,7 @@ async function handleCreateChallenge(
   });
 
   if (blocked) {
-    throw new Error('VALIDATION_ERROR: You cannot challenge this user');
+    throw new ValidationError('You cannot challenge this user');
   }
 
   const existingChallenge = await prisma.challenge.findFirst({
@@ -118,7 +122,7 @@ async function handleCreateChallenge(
   });
 
   if (existingChallenge) {
-    throw new Error('VALIDATION_ERROR: A challenge already exists between these players');
+    throw new ValidationError('A challenge already exists between these players');
   }
 
   const challenge = await prisma.challenge.create({
@@ -170,15 +174,15 @@ async function handleAcceptChallenge(
   });
 
   if (!challenge) {
-    throw new Error('VALIDATION_ERROR: Challenge not found');
+    throw new ValidationError('Challenge not found');
   }
 
   if (challenge.receiverId !== userId) {
-    throw new Error('VALIDATION_ERROR: You are not the receiver of this challenge');
+    throw new ValidationError('You are not the receiver of this challenge');
   }
 
   if (challenge.status !== 'PENDING') {
-    throw new Error('VALIDATION_ERROR: Challenge is no longer pending');
+    throw new ValidationError('Challenge is no longer pending');
   }
 
   if (challenge.expiresAt < new Date()) {
@@ -186,7 +190,7 @@ async function handleAcceptChallenge(
       where: { id: challengeId },
       data: { status: 'EXPIRED' },
     });
-    throw new Error('VALIDATION_ERROR: Challenge has expired');
+    throw new ValidationError('Challenge has expired');
   }
 
   const { initialTimeSeconds, incrementSeconds } = parseTimeControl(challenge.timeControl);
@@ -233,7 +237,7 @@ async function handleAcceptChallenge(
     timeControl: challenge.timeControl,
   });
 
-  console.log(`[Challenge] Challenge ${challengeId} accepted, game ${gameId} created`);
+  socket.data.log.info({ challengeId, gameId }, 'challenge accepted, game created');
 }
 
 async function handleDeclineChallenge(
@@ -249,15 +253,15 @@ async function handleDeclineChallenge(
   });
 
   if (!challenge) {
-    throw new Error('VALIDATION_ERROR: Challenge not found');
+    throw new ValidationError('Challenge not found');
   }
 
   if (challenge.receiverId !== userId) {
-    throw new Error('VALIDATION_ERROR: You are not the receiver of this challenge');
+    throw new ValidationError('You are not the receiver of this challenge');
   }
 
   if (challenge.status !== 'PENDING') {
-    throw new Error('VALIDATION_ERROR: Challenge is no longer pending');
+    throw new ValidationError('Challenge is no longer pending');
   }
 
   await cancelChallengeExpiration(challengeId);
@@ -273,7 +277,7 @@ async function handleDeclineChallenge(
   io.to(getUserRoomId(challenge.senderId)).emit(SOCKET_EVENTS.CHALLENGE_DECLINED);
   io.to(getUserRoomId(challenge.receiverId)).emit(SOCKET_EVENTS.CHALLENGE_DECLINED);
 
-  console.log(`[Challenge] Challenge ${challengeId} declined`);
+  socket.data.log.info({ challengeId }, 'challenge declined');
 }
 
 async function handleCancelChallenge(
@@ -289,15 +293,15 @@ async function handleCancelChallenge(
   });
 
   if (!challenge) {
-    throw new Error('VALIDATION_ERROR: Challenge not found');
+    throw new ValidationError('Challenge not found');
   }
 
   if (challenge.senderId !== userId) {
-    throw new Error('VALIDATION_ERROR: You are not the sender of this challenge');
+    throw new ValidationError('You are not the sender of this challenge');
   }
 
   if (challenge.status !== 'PENDING') {
-    throw new Error('VALIDATION_ERROR: Challenge is no longer pending');
+    throw new ValidationError('Challenge is no longer pending');
   }
 
   await cancelChallengeExpiration(challengeId);
@@ -313,5 +317,5 @@ async function handleCancelChallenge(
   io.to(getUserRoomId(challenge.senderId)).emit(SOCKET_EVENTS.CHALLENGE_CANCELLED);
   io.to(getUserRoomId(challenge.receiverId)).emit(SOCKET_EVENTS.CHALLENGE_CANCELLED);
 
-  console.log(`[Challenge] Challenge ${challengeId} cancelled`);
+  socket.data.log.info({ challengeId }, 'challenge cancelled');
 }

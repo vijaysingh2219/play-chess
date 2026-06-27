@@ -1,10 +1,13 @@
 import { ActiveGameCache, GameState, GameType, MoveData } from '@workspace/contracts';
 import { Color, GameTerminationReason, prisma, Winner } from '@workspace/db';
+import { logger } from '@workspace/logger';
 import Bull from 'bull';
 import { Chess, PieceSymbol } from 'chess.js';
 import { redis } from '../lib/redis';
 import { calculateEloChanges } from './elo';
 import { gameTimeoutQueue } from './timeouts';
+
+const log = logger.child({ module: 'game' });
 
 interface TimeoutJob {
   gameId: string;
@@ -135,11 +138,11 @@ class GameService {
 
     await this.setReadyState(gameId, updated);
 
-    console.log(`[Ready] Player ${isWhite ? 'White' : 'Black'} ready for ${gameId}`);
+    log.info({ gameId, color: isWhite ? 'white' : 'black' }, 'player ready');
 
     // Check if both players ready
     if (updated.whiteReady && updated.blackReady) {
-      console.log(`[Ready] Both players ready! Starting clocks for ${gameId}`);
+      log.info({ gameId }, 'both players ready, starting clocks');
 
       // CRITICAL: Set actual start time to when LAST player became ready
       const actualStartTime = Math.max(updated.whiteReadyAt || now, updated.blackReadyAt || now);
@@ -272,7 +275,7 @@ class GameService {
 
           // If one player ready for > 30s, start game anyway
           if (waitTime > this.MAX_READY_WAIT) {
-            console.log(`[Watchdog] Force-starting ${gameId} after ${waitTime}ms wait`);
+            log.info({ gameId, waitTime }, 'watchdog force-starting game');
 
             const gameState = await this.loadGame(gameId);
             if (!gameState) continue;
@@ -286,7 +289,7 @@ class GameService {
           }
         }
       } catch (error) {
-        console.error('[Watchdog] Error:', error);
+        log.error({ err: error }, 'watchdog error');
       }
     }, 5000); // Check every 5 seconds
   }
@@ -432,13 +435,13 @@ class GameService {
 
       // Save move to database (async)
       this.saveMoveToDatabase(gameId, moveData).catch((error) => {
-        console.error('[Game] Error saving move:', error);
+        log.error({ err: error, gameId }, 'failed to save move to database');
       });
 
       // Update times in database (async)
       this.updateGameTimes(gameId, gameState.whiteTimeLeft, gameState.blackTimeLeft).catch(
         (error) => {
-          console.error('[Game] Error updating times:', error);
+          log.error({ err: error, gameId }, 'failed to update game times in database');
         },
       );
 
@@ -520,7 +523,7 @@ class GameService {
       },
     );
 
-    console.log(`[Timeout] Scheduled for ${gameId}, player ${playerId} in ${timeLeft}ms`);
+    log.debug({ gameId, playerId, timeLeft }, 'timeout scheduled');
   }
 
   /**
@@ -530,12 +533,12 @@ class GameService {
   private async processTimeoutJob(job: TimeoutJob): Promise<void> {
     const { gameId, playerId, color } = job;
 
-    console.log(`[Timeout] Processing timeout for ${gameId}, player ${playerId}`);
+    log.debug({ gameId, playerId }, 'processing timeout');
 
     // Acquire lock to prevent race with concurrent move
     const lock = await this.acquireLock(gameId);
     if (!lock) {
-      console.log(`[Timeout] Game ${gameId} is locked, will retry`);
+      log.debug({ gameId }, 'timeout: game locked, will retry');
       // Reschedule with short delay
       await this.scheduleTimeoutJob(gameId, playerId, color, 500);
       return;
@@ -546,7 +549,7 @@ class GameService {
       const gameState = await this.loadGame(gameId);
 
       if (!gameState || gameState.status !== 'ONGOING') {
-        console.log(`[Timeout] Game ${gameId} no longer active`);
+        log.debug({ gameId }, 'timeout: game no longer active');
         return;
       }
 
@@ -556,7 +559,7 @@ class GameService {
         (gameState.currentTurn === 'b' && playerId === gameState.blackPlayerId);
 
       if (!isPlayersTurn) {
-        console.log(`[Timeout] Player ${playerId} already moved`);
+        log.debug({ gameId, playerId }, 'timeout: player already moved');
         return;
       }
 
@@ -572,15 +575,15 @@ class GameService {
 
       if (actualTimeLeft <= 0) {
         // CONFIRMED TIMEOUT
-        console.log(`[Timeout] Confirmed for ${gameId}, player ${playerId}`);
+        log.info({ gameId, playerId }, 'timeout confirmed');
         await this.handleTimeout(gameId, playerId);
       } else if (actualTimeLeft < 5000) {
         // Close to timeout, reschedule precisely
-        console.log(`[Timeout] Rescheduling ${gameId}, ${actualTimeLeft}ms left`);
+        log.debug({ gameId, actualTimeLeft }, 'timeout rescheduling');
         await this.scheduleTimeoutJob(gameId, playerId, color, actualTimeLeft);
       } else {
         // Time was extended (e.g., by increment), reschedule
-        console.log(`[Timeout] Time extended for ${gameId}, rescheduling`);
+        log.debug({ gameId }, 'timeout: time extended, rescheduling');
         await this.scheduleTimeoutJob(gameId, playerId, color, actualTimeLeft);
       }
     } finally {
@@ -597,7 +600,7 @@ class GameService {
 
     if (job) {
       await job.remove();
-      console.log(`[Timeout] Cancelled for ${gameId}, player ${playerId}`);
+      log.debug({ gameId, playerId }, 'timeout cancelled');
     }
   }
 
@@ -633,7 +636,7 @@ class GameService {
           }
         }
       } catch (error) {
-        console.error('[Sweep] Fallback sweep error:', error);
+        log.error({ err: error }, 'fallback sweep error');
       }
     }, this.FALLBACK_SWEEP_INTERVAL);
   }
@@ -763,7 +766,7 @@ class GameService {
     // Remove from cache
     await this.removeGameCache(gameId);
 
-    console.log(`[Game] Game ${gameId} ended: ${winner} by ${reason}`);
+    log.info({ gameId, winner, reason }, 'game ended');
 
     return { ratings: eloChanges };
   }
@@ -878,7 +881,7 @@ class GameService {
     await this.cancelTimeoutJob(gameId, gameState.blackPlayerId);
     await this.removeGameCache(gameId);
 
-    console.log(`[Game] Game ${gameId} aborted`);
+    log.info({ gameId }, 'game aborted');
   }
 
   /**

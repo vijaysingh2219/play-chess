@@ -11,7 +11,7 @@ export const errorHandler = (
 
   // `req.log` is the per-request child logger attached by pino-http; it carries
   // the request id and method/url so the error line is correlated to its request.
-  req.log.error({ err }, 'Unhandled request error');
+  req.log.error({ err }, 'unhandled request error');
 
   if (isProd) {
     res.status(500).json({

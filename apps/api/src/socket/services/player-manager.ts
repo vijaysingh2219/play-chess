@@ -1,4 +1,7 @@
+import { logger } from '@workspace/logger';
 import { redis } from '../lib/redis';
+
+const log = logger.child({ module: 'player-manager' });
 
 /**
  * PlayerManager Service
@@ -31,7 +34,7 @@ class PlayerManager {
     // Set expiration
     await redis.expire(key, this.SOCKET_TTL);
 
-    console.log(`[PlayerManager] Socket ${socketId} added for user ${userId}`);
+    log.debug({ userId, socketId }, 'socket added');
   }
 
   /**
@@ -46,9 +49,7 @@ class PlayerManager {
     // Check if user has any remaining connections
     const remaining = await this.getSocketCount(userId);
 
-    console.log(
-      `[PlayerManager] Socket ${socketId} removed for user ${userId}. Remaining: ${remaining}`,
-    );
+    log.debug({ userId, socketId, remaining }, 'socket removed');
   }
 
   /**
@@ -83,7 +84,7 @@ class PlayerManager {
   async disconnectUser(userId: string): Promise<void> {
     const key = this.getSocketKey(userId);
     await redis.del(key);
-    console.log(`[PlayerManager] User ${userId} forcefully disconnected`);
+    log.info({ userId }, 'user forcefully disconnected');
   }
 
   /**

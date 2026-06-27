@@ -18,7 +18,7 @@ export function setupConnectionHandlers(io: TypedServer): void {
     const userId = socket.data.userId;
     const username = socket.data.username;
 
-    console.log(`[Connection] ${username} (${userId}) connected`);
+    socket.data.log.info('connected');
 
     // Register socket with PlayerManager
     await playerManager.addSocket(userId, socket.id);
@@ -88,7 +88,7 @@ async function handleReconnection(socket: AuthenticatedSocket): Promise<void> {
           canMove: gameState.currentTurn === (isWhite ? 'w' : 'b'),
         });
 
-        console.log(`[Connection] ${socket.data.username} reconnected to game ${game.id}`);
+        socket.data.log.info({ gameId: game.id }, 'reconnected to game');
       }
 
       // Update socket ID in game cache if it exists
@@ -102,15 +102,14 @@ async function handleReconnection(socket: AuthenticatedSocket): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('[Connection] Error during reconnection:', error);
+    socket.data.log.error({ err: error }, 'reconnection failed');
   }
 }
 
 async function handleDisconnect(socket: AuthenticatedSocket): Promise<void> {
   const userId = socket.data.userId;
-  const username = socket.data.username;
 
-  console.log(`[Connection] ${username} (${userId}) disconnected`);
+  socket.data.log.info('disconnected');
 
   try {
     // Remove socket from PlayerManager
@@ -125,7 +124,7 @@ async function handleDisconnect(socket: AuthenticatedSocket): Promise<void> {
       data: { lastSeenAt: new Date() },
     });
   } catch (error) {
-    console.error('[Connection] Error handling disconnect:', error);
+    socket.data.log.error({ err: error }, 'disconnect handling failed');
   }
 }
 

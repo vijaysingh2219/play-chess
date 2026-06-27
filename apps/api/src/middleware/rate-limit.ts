@@ -49,7 +49,7 @@ const createRateLimitMiddleware = (
 
       next();
     } catch (error) {
-      req.log.error({ err: error }, 'Rate limit middleware error');
+      req.log.error({ err: error }, 'rate limit middleware error');
       // Fail open - allow request to proceed if rate limiting fails
       next();
     }

@@ -1,5 +1,8 @@
 import { createAdapter } from '@socket.io/redis-adapter';
+import { logger } from '@workspace/logger';
 import Redis from 'ioredis';
+
+const log = logger.child({ module: 'socket:redis' });
 
 const CONNECT_TIMEOUT_MS = 3000;
 
@@ -29,18 +32,15 @@ export async function setupRedisAdapter() {
     const subClient = pubClient.duplicate();
     await connectWithTimeout(subClient);
 
-    pubClient.on('error', (err) => console.error('[Redis] Pub client error', err));
-    subClient.on('error', (err) => console.error('[Redis] Sub client error', err));
+    pubClient.on('error', (err) => log.error({ err }, 'redis pub client error'));
+    subClient.on('error', (err) => log.error({ err }, 'redis sub client error'));
 
     const adapter = createAdapter(pubClient, subClient);
-    console.log(`[Socket.IO] Redis adapter attached (${redisUrl})`);
+    log.info({ redisUrl }, 'redis adapter attached');
 
     return { adapter, pubClient, subClient };
   } catch (err) {
-    console.error(
-      `[Socket.IO] Could not connect to Redis at ${redisUrl}; falling back to in-memory adapter.`,
-      err instanceof Error ? err.message : err,
-    );
+    log.error({ err, redisUrl }, 'could not connect to Redis; falling back to in-memory adapter');
     pubClient.disconnect();
     return null;
   }

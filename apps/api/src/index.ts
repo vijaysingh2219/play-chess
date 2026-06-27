@@ -19,19 +19,19 @@ const socketServer = initializeSocketServer(httpServer);
 // Fail fast if socket init fails (e.g. Redis unreachable in prod) so the
 // instance exits instead of silently serving broken realtime.
 socketServer.catch((err) => {
-  logger.error({ err }, 'Failed to initialize Socket.IO server');
+  logger.error({ err }, 'failed to initialize Socket.IO server');
   process.exit(1);
 });
 
 httpServer.listen(PORT, () => {
-  logger.info(`API server running on http://localhost:${PORT}`);
+  logger.info({ port: PORT }, 'api server listening');
 });
 
 const shutdown = async (signal: string) => {
-  logger.info(`${signal} received, shutting down gracefully`);
+  logger.info({ signal }, 'received shutdown signal, shutting down gracefully');
   await shutdownSocketServer(socketServer);
   httpServer.close(() => {
-    logger.info('Process terminated');
+    logger.info('process terminated');
     process.exit(0);
   });
 };

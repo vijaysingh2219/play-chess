@@ -1,8 +1,11 @@
 import { AuthenticatedSocket, QueueEntry } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
+import { logger } from '@workspace/logger';
 import { parseTimeControl } from '@workspace/utils';
 import { redis } from '../lib/redis';
 import { gameService } from './game';
+
+const log = logger.child({ module: 'matchmaking' });
 
 /**
  * Matchmaking Service
@@ -63,8 +66,9 @@ class MatchmakingService {
     // Add to sorted set for time-based indexing (score = timestamp)
     await redis.zadd(`${this.QUEUE_INDEX_KEY}:${timeControl}`, entry.joinedAt.getTime(), userId);
 
-    console.log(
-      `[Matchmaking] ${entry.username} (${entry.rating}) joined queue for ${timeControl}`,
+    log.info(
+      { userId, username: entry.username, rating: entry.rating, timeControl },
+      'joined queue',
     );
 
     // Attempt to find a match immediately
@@ -90,7 +94,7 @@ class MatchmakingService {
     // Remove from sorted set
     await redis.zrem(`${this.QUEUE_INDEX_KEY}:${entry.timeControl}`, userId);
 
-    console.log(`[Matchmaking] User ${userId} removed from queue`);
+    log.info({ userId }, 'removed from queue');
 
     return true;
   }
@@ -198,8 +202,13 @@ class MatchmakingService {
     this.removeFromQueue(player1.userId);
     this.removeFromQueue(player2.userId);
 
-    console.log(
-      `[Matchmaking] Match created: ${player1.username} vs ${player2.username} (Game ${gameId})`,
+    log.info(
+      {
+        gameId,
+        player1: { userId: player1.userId, username: player1.username },
+        player2: { userId: player2.userId, username: player2.username },
+      },
+      'match created',
     );
 
     return {
@@ -294,7 +303,7 @@ class MatchmakingService {
       const joinedAt = new Date(entry.joinedAt).getTime();
 
       if (joinedAt < cutoff) {
-        console.log(`[Matchmaking] Removing ${entry.username} from queue (timeout)`);
+        log.info({ userId, username: entry.username }, 'removing stale entry from queue (timeout)');
         await this.removeFromQueue(userId);
       }
     }
@@ -371,7 +380,7 @@ setInterval(() => {
 setInterval(
   async () => {
     const stats = await matchmakingService.getQueueStats();
-    console.log('[Matchmaking] Queue Stats:', stats);
+    log.info({ stats }, 'queue stats');
   },
   5 * 60 * 1000,
 );

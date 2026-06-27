@@ -1,4 +1,5 @@
 import { TypedServer } from '@workspace/contracts';
+import { logger } from '@workspace/logger';
 import type { Server as HTTPServer } from 'http';
 import type { Redis } from 'ioredis';
 import { Server } from 'socket.io';
@@ -12,6 +13,8 @@ import { setupGameHandlers } from './handlers/game';
 import { setupMatchmakingHandlers } from './handlers/matchmaking';
 import { authMiddleware } from './middleware/auth.middleware';
 import { setupRedisAdapter } from './redis';
+
+const log = logger.child({ module: 'socket:server' });
 
 let redisPub: Redis | null = null;
 let redisSub: Redis | null = null;
@@ -48,9 +51,9 @@ export async function initializeSocketServer(httpServer: HTTPServer): Promise<Ty
     redisPub = redisSetup.pubClient;
     redisSub = redisSetup.subClient;
   } else if (process.env.NODE_ENV === 'production') {
-    throw new Error('[Socket.IO] Redis is required in production but unreachable. Set REDIS_URL.');
+    throw new Error('Redis is required in production but unreachable. Set REDIS_URL.');
   } else {
-    console.warn('[Socket.IO] No Redis — using in-memory adapter (dev/single-instance only).');
+    log.warn('Redis unavailable, using in-memory adapter (dev/single-instance only)');
   }
 
   setupConnectionHandlers(io);
@@ -62,7 +65,7 @@ export async function initializeSocketServer(httpServer: HTTPServer): Promise<Ty
 
   await cleanupExpiredChallenges(io);
 
-  console.log('[Socket.IO] Server initialized');
+  log.info('server initialized');
 
   setInterval(
     () => {
@@ -70,7 +73,7 @@ export async function initializeSocketServer(httpServer: HTTPServer): Promise<Ty
         connectedSockets: io.sockets.sockets.size,
         rooms: io.sockets.adapter.rooms.size,
       };
-      console.log('[Socket.IO] Stats:', stats);
+      log.info({ stats }, 'server stats');
     },
     5 * 60 * 1000,
   ); // Every 5 minutes
@@ -79,14 +82,14 @@ export async function initializeSocketServer(httpServer: HTTPServer): Promise<Ty
 }
 
 export async function shutdownSocketServer(io: Promise<TypedServer>): Promise<void> {
-  console.log('[Socket.IO] Shutting down server...');
+  log.info('shutting down server');
 
   (await io).disconnectSockets();
 
   await new Promise<void>((resolve) => {
     io.then((server) => {
       server.close(() => {
-        console.log('[Socket.IO] Server closed');
+        log.info('server closed');
         resolve();
       });
     });
@@ -94,11 +97,11 @@ export async function shutdownSocketServer(io: Promise<TypedServer>): Promise<vo
 
   if (redisPub) {
     await redisPub.quit();
-    console.log('[Redis] Pub client closed');
+    log.info('redis pub client closed');
   }
 
   if (redisSub) {
     await redisSub.quit();
-    console.log('[Redis] Sub client closed');
+    log.info('redis sub client closed');
   }
 }

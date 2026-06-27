@@ -1,7 +1,10 @@
 import { getUserRoomId, TypedServer } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
+import { logger } from '@workspace/logger';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import Bull from 'bull';
+
+const log = logger.child({ module: 'queue:challenge' });
 
 interface ChallengeExpirationJob {
   challengeId: string;
@@ -73,22 +76,22 @@ export function processChallengeExpirationQueue(io: TypedServer): void {
         challengeId,
       });
 
-      console.log(`[Challenge Queue] Challenge ${challengeId} expired`);
+      log.info({ challengeId }, 'challenge expired');
     } catch (error) {
-      console.error(`[Challenge Queue] Error expiring challenge ${challengeId}:`, error);
+      log.error({ err: error, challengeId }, 'failed to expire challenge');
       throw error;
     }
   });
 
   challengeExpirationQueue.on('completed', (job) => {
-    console.log(`[Challenge Queue] Job ${job.id} completed`);
+    log.debug({ jobId: job.id }, 'job completed');
   });
 
   challengeExpirationQueue.on('failed', (job, err) => {
-    console.error(`[Challenge Queue] Job ${job?.id} failed:`, err);
+    log.error({ err, jobId: job?.id }, 'job failed');
   });
 
-  console.log('[Challenge Queue] Processor started');
+  log.info('processor started');
 }
 
 /**
@@ -118,7 +121,7 @@ export async function cancelChallengeExpiration(challengeId: string): Promise<vo
       await job.remove();
     }
   } catch (error) {
-    console.error(`[Challenge Queue] Error cancelling expiration for ${challengeId}:`, error);
+    log.error({ err: error, challengeId }, 'failed to cancel challenge expiration');
   }
 }
 
@@ -126,7 +129,7 @@ export async function cancelChallengeExpiration(challengeId: string): Promise<vo
  * Clean up expired challenges on startup
  */
 export async function cleanupExpiredChallenges(io: TypedServer): Promise<void> {
-  console.log('[Challenge Queue] Cleaning up expired challenges...');
+  log.info('cleaning up expired challenges');
 
   try {
     const expiredChallenges = await prisma.challenge.findMany({
@@ -165,9 +168,9 @@ export async function cleanupExpiredChallenges(io: TypedServer): Promise<void> {
         });
       }
 
-      console.log(`[Challenge Queue] Cleaned up ${expiredChallenges.length} expired challenges`);
+      log.info({ count: expiredChallenges.length }, 'cleaned up expired challenges');
     }
   } catch (error) {
-    console.error('[Challenge Queue] Error cleaning up expired challenges:', error);
+    log.error({ err: error }, 'failed to clean up expired challenges');
   }
 }

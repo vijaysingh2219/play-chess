@@ -1,4 +1,7 @@
+import { logger } from '@workspace/logger';
 import Redis from 'ioredis';
+
+const log = logger.child({ module: 'redis' });
 
 let redisClient: Redis | null = null;
 
@@ -27,23 +30,23 @@ export function getRedisClient(): Redis {
     });
 
     redisClient.on('connect', () => {
-      console.log('[Redis] Connected to Redis server');
+      log.info('connected to Redis server');
     });
 
     redisClient.on('ready', () => {
-      console.log('[Redis] Redis client ready');
+      log.info('redis client ready');
     });
 
     redisClient.on('error', (err) => {
-      console.error('[Redis] Redis client error:', err);
+      log.error({ err }, 'redis client error');
     });
 
     redisClient.on('close', () => {
-      console.log('[Redis] Redis connection closed');
+      log.info('redis connection closed');
     });
 
     redisClient.on('reconnecting', () => {
-      console.log('[Redis] Reconnecting to Redis...');
+      log.info('reconnecting to Redis');
     });
   }
 
@@ -54,7 +57,7 @@ export async function closeRedis(): Promise<void> {
   if (redisClient) {
     await redisClient.quit();
     redisClient = null;
-    console.log('[Redis] Connection closed');
+    log.info('connection closed');
   }
 }
 

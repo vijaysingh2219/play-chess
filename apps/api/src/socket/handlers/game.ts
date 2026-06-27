@@ -37,7 +37,7 @@ export function setupGameHandlers(io: TypedServer): void {
     socket.on(
       SOCKET_EVENTS.PLAYER_READY,
       createHandler(socket, GameIdSchema, async (payload) => {
-        console.log('[Game] Player ready received');
+        socket.data.log.debug({ gameId: payload.gameId }, 'player ready received');
         await handlePlayerReady(io, socket, payload);
       }),
     );
@@ -106,7 +106,7 @@ async function handleJoinGame(
   await playerManager.setUserActiveGame(userId, gameId);
   await playerManager.setUserStatus(userId, 'in-game');
 
-  console.log(`[Game] ${socket.data.username} joined game ${gameId}`);
+  socket.data.log.info({ gameId }, 'joined game');
 
   const isWhite = userId === gameState.whitePlayerId;
   const yourColor = isWhite ? 'w' : 'b';
@@ -125,7 +125,7 @@ async function handleLeaveGame(socket: AuthenticatedSocket, payload: GameIdPaylo
 
   socket.leave(roomId);
 
-  console.log(`[Game] ${socket.data.username} left game ${gameId}`);
+  socket.data.log.info({ gameId }, 'left game');
 }
 
 async function handlePlayerReady(
@@ -138,7 +138,7 @@ async function handlePlayerReady(
 
   const result = await gameService.markPlayerReady(gameId, userId);
 
-  console.log(`[Game] ${socket.data.username} is ready in game ${gameId}`);
+  socket.data.log.info({ gameId }, 'player ready');
 
   // When both players are ready, emit GAME_SYNC so clients start their clocks
   if (result.bothReady) {
@@ -160,7 +160,7 @@ async function handlePlayerReady(
         canMove: gameState.currentTurn === 'b',
       });
 
-      console.log(`[Game] Both players ready, GAME_SYNC emitted for game ${gameId}`);
+      socket.data.log.info({ gameId }, 'both players ready, GAME_SYNC emitted');
     }
   }
 }
@@ -198,14 +198,14 @@ async function handleMakeMove(
     },
   };
 
-  console.log('[Game] Move processed:', moveResponse);
+  socket.data.log.debug({ gameId, move: moveResponse }, 'move processed');
 
   socket.emit(SOCKET_EVENTS.MOVE_ACCEPTED, moveResponse);
 
   const roomId = getGameRoomId(gameId);
   socket.to(roomId).emit(SOCKET_EVENTS.OPPONENT_MOVED, moveResponse);
 
-  console.log(`[Game] ${socket.data.username} moved ${moveData.san} in game ${gameId}`);
+  socket.data.log.info({ gameId, san: moveData.san }, 'move made');
 
   // If the game ended due to checkmate/stalemate/draw, emit GAME_ENDED
   if (gameEndInfo) {
@@ -230,7 +230,10 @@ async function handleMakeMove(
       pgn: '',
     });
 
-    console.log(`[Game] Game ${gameId} ended: ${gameEndInfo.winner} by ${gameEndInfo.reason}`);
+    socket.data.log.info(
+      { gameId, winner: gameEndInfo.winner, reason: gameEndInfo.reason },
+      'game ended',
+    );
   }
 }
 
@@ -277,7 +280,7 @@ async function handleResign(
     pgn: '', // Will be populated from DB
   });
 
-  console.log(`[Game] ${socket.data.username} resigned game ${gameId}`);
+  socket.data.log.info({ gameId }, 'resigned');
 }
 
 async function handleDrawOffer(
@@ -305,7 +308,7 @@ async function handleDrawOffer(
 
   io.to(getUserRoomId(opponentId)).emit(SOCKET_EVENTS.DRAW_OFFER);
 
-  console.log(`[Game] ${socket.data.username} offered draw in game ${gameId}`);
+  socket.data.log.info({ gameId }, 'draw offered');
 }
 
 async function handleDrawAccept(
@@ -345,7 +348,7 @@ async function handleDrawAccept(
     pgn: '',
   });
 
-  console.log(`[Game] Draw accepted in game ${gameId}`);
+  socket.data.log.info({ gameId }, 'draw accepted');
 }
 
 async function handleDrawDecline(
@@ -367,7 +370,7 @@ async function handleDrawDecline(
 
   io.to(getUserRoomId(opponentId)).emit(SOCKET_EVENTS.DRAW_DECLINED);
 
-  console.log(`[Game] ${socket.data.username} declined draw in game ${gameId}`);
+  socket.data.log.info({ gameId }, 'draw declined');
 }
 
 async function handleAbort(
@@ -389,5 +392,5 @@ async function handleAbort(
 
   await gameService.abortGame(gameId);
 
-  console.log(`[Game] Game ${gameId} aborted`);
+  socket.data.log.info({ gameId }, 'game aborted');
 }
