@@ -1,7 +1,13 @@
+import { logger } from '@workspace/logger';
 import { createRateLimiter, slidingWindow } from '@workspace/rate-limit';
-import { Socket } from 'socket.io';
 import { RateLimitError } from './error.middleware';
 
+const log = logger.child({ module: 'socket:rate-limit' });
+
+/**
+ * Per-action sliding-window limiters for socket events. Redis-backed, so limits
+ * hold across instances. Wired into `createHandler` (see validation.middleware).
+ */
 const rateLimiters = {
   // Matchmaking: 1 request per 3 seconds
   MATCHMAKING: createRateLimiter({
@@ -34,48 +40,27 @@ const rateLimiters = {
   }),
 } as const;
 
-type RateLimitAction = keyof typeof rateLimiters;
+export type RateLimitAction = keyof typeof rateLimiters;
 
-export const createRateLimitMiddleware = <T = unknown>(
-  action: RateLimitAction,
-  getKey?: (socket: Socket, ...args: T[]) => string,
-) => {
-  return (handler: (...args: [Socket, ...T[]]) => Promise<void> | void) => {
-    return async (...args: [Socket, ...T[]]) => {
-      const socket = args[0];
-      const userId = (socket as { data?: { userId?: string } }).data?.userId;
+/**
+ * Enforce a rate limit for the given action and key.
+ *
+ * Fails open: if the limiter backend (Upstash) is unreachable or errors, the
+ * request is allowed through rather than breaking the event — a rate-limiter
+ * outage must not take down the feature it guards.
+ *
+ * @throws RateLimitError only when the limit is actually exceeded
+ */
+export async function enforceRateLimit(action: RateLimitAction, key: string): Promise<void> {
+  let success: boolean;
+  try {
+    ({ success } = await rateLimiters[action].limit(key));
+  } catch (err) {
+    log.error({ err, action }, 'rate limiter unavailable, allowing request (fail open)');
+    return;
+  }
 
-      if (!userId) {
-        throw new RateLimitError('User not authenticated');
-      }
-
-      // Generate rate limit key
-      const key = getKey ? getKey(socket, ...(args.slice(1) as T[])) : `${userId}:${action}`;
-
-      // Check rate limit
-      const limiter = rateLimiters[action];
-      const { success } = await limiter.limit(key);
-
-      if (!success) {
-        throw new RateLimitError(`Rate limit exceeded for ${action}. Please slow down.`);
-      }
-
-      return handler(...args);
-    };
-  };
-};
-
-export const createGameRateLimitMiddleware = <T extends { gameId?: string } = { gameId?: string }>(
-  action: RateLimitAction,
-) => {
-  return createRateLimitMiddleware<T>(action, (socket, payload) => {
-    const userId = (socket as { data?: { userId?: string } }).data?.userId;
-    const gameId = payload?.gameId;
-    return `${userId}:${gameId}:${action}`;
-  });
-};
-
-export const rateLimitMatchmaking = createRateLimitMiddleware('MATCHMAKING');
-export const rateLimitGameMove = createGameRateLimitMiddleware('GAME_MOVE');
-export const rateLimitChallengeCreate = createRateLimitMiddleware('CHALLENGE_CREATE');
-export const rateLimitDrawOffer = createGameRateLimitMiddleware('DRAW_OFFER');
+  if (!success) {
+    throw new RateLimitError(`Rate limit exceeded for ${action}. Please slow down.`);
+  }
+}

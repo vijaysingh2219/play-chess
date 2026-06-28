@@ -1,9 +1,11 @@
 import {
   AuthenticatedSocket,
+  GameState,
   getGameRoomId,
   getUserRoomId,
   TypedServer,
 } from '@workspace/contracts';
+import { GameTerminationReason, Winner } from '@workspace/db';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { Chess } from 'chess.js';
 import { GameError } from '../middleware/error.middleware';
@@ -24,59 +26,138 @@ export function setupGameHandlers(io: TypedServer): void {
     // Join game
     socket.on(
       SOCKET_EVENTS.JOIN_GAME,
-      createHandler(socket, JoinGameSchema, (payload) => handleJoinGame(io, socket, payload)),
+      createHandler(socket, JoinGameSchema, (payload) => handleJoinGame(io, socket, payload), {
+        action: 'GENERAL',
+      }),
     );
 
     // Leave game
     socket.on(
       SOCKET_EVENTS.LEAVE_GAME,
-      createHandler(socket, GameIdSchema, (payload) => handleLeaveGame(socket, payload)),
+      createHandler(socket, GameIdSchema, (payload) => handleLeaveGame(socket, payload), {
+        action: 'GENERAL',
+      }),
     );
 
     // Player ready
     socket.on(
       SOCKET_EVENTS.PLAYER_READY,
-      createHandler(socket, GameIdSchema, async (payload) => {
-        socket.data.log.debug({ gameId: payload.gameId }, 'player ready received');
-        await handlePlayerReady(io, socket, payload);
-      }),
+      createHandler(
+        socket,
+        GameIdSchema,
+        async (payload) => {
+          socket.data.log.debug({ gameId: payload.gameId }, 'player ready received');
+          await handlePlayerReady(io, socket, payload);
+        },
+        { action: 'GENERAL' },
+      ),
     );
 
     // Make move
     socket.on(
       SOCKET_EVENTS.MAKE_MOVE,
-      createHandler(socket, MakeMoveSchema, (payload) => handleMakeMove(io, socket, payload)),
+      createHandler(socket, MakeMoveSchema, (payload) => handleMakeMove(io, socket, payload), {
+        action: 'GAME_MOVE',
+        perGame: true,
+      }),
     );
 
     // Resign
     socket.on(
       SOCKET_EVENTS.RESIGN,
-      createHandler(socket, GameIdSchema, (payload) => handleResign(io, socket, payload)),
+      createHandler(socket, GameIdSchema, (payload) => handleResign(io, socket, payload), {
+        action: 'GENERAL',
+      }),
     );
 
     // Draw offer
     socket.on(
       SOCKET_EVENTS.DRAW_OFFER,
-      createHandler(socket, GameIdSchema, (payload) => handleDrawOffer(io, socket, payload)),
+      createHandler(socket, GameIdSchema, (payload) => handleDrawOffer(io, socket, payload), {
+        action: 'DRAW_OFFER',
+        perGame: true,
+      }),
     );
 
     // Draw accept
     socket.on(
       SOCKET_EVENTS.DRAW_ACCEPT,
-      createHandler(socket, GameIdSchema, (payload) => handleDrawAccept(io, socket, payload)),
+      createHandler(socket, GameIdSchema, (payload) => handleDrawAccept(io, socket, payload), {
+        action: 'GENERAL',
+      }),
     );
 
     // Draw decline
     socket.on(
       SOCKET_EVENTS.DRAW_DECLINE,
-      createHandler(socket, GameIdSchema, (payload) => handleDrawDecline(io, socket, payload)),
+      createHandler(socket, GameIdSchema, (payload) => handleDrawDecline(io, socket, payload), {
+        action: 'GENERAL',
+      }),
     );
 
     // Abort game
     socket.on(
       SOCKET_EVENTS.ABORT,
-      createHandler(socket, GameIdSchema, (payload) => handleAbort(io, socket, payload)),
+      createHandler(socket, GameIdSchema, (payload) => handleAbort(io, socket, payload), {
+        action: 'GENERAL',
+      }),
     );
+  });
+}
+
+/** ELO outcome shape returned by the game service when a game ends. */
+interface EndRatings {
+  whiteChange: number;
+  blackChange: number;
+  whiteNewRating: number;
+  blackNewRating: number;
+}
+
+/** Load a game state or throw a GameError if it no longer exists. */
+async function loadGameOrThrow(gameId: string): Promise<GameState> {
+  const gameState = await gameService.loadGame(gameId);
+  if (!gameState) {
+    throw new GameError('Game not found', gameId);
+  }
+  return gameState;
+}
+
+/** Release both players from the finished game (clears active game + status). */
+async function clearPlayersFromGame(whitePlayerId: string, blackPlayerId: string): Promise<void> {
+  await Promise.all([
+    playerManager.removeUserActiveGame(whitePlayerId),
+    playerManager.removeUserActiveGame(blackPlayerId),
+    playerManager.setUserStatus(whitePlayerId, 'idle'),
+    playerManager.setUserStatus(blackPlayerId, 'idle'),
+  ]);
+}
+
+/** Broadcast the terminal GAME_ENDED event to everyone in the game room. */
+function emitGameEnded(
+  io: TypedServer,
+  gameId: string,
+  params: {
+    winner: Winner;
+    reason: GameTerminationReason;
+    finalFen: string;
+    ratings: EndRatings;
+    pgn?: string;
+  },
+): void {
+  io.in(getGameRoomId(gameId)).emit(SOCKET_EVENTS.GAME_ENDED, {
+    gameId,
+    winner: params.winner,
+    reason: params.reason,
+    finalFen: params.finalFen,
+    eloChanges: {
+      white: params.ratings.whiteChange,
+      black: params.ratings.blackChange,
+    },
+    newRatings: {
+      white: params.ratings.whiteNewRating,
+      black: params.ratings.blackNewRating,
+    },
+    pgn: params.pgn ?? '',
   });
 }
 
@@ -88,11 +169,7 @@ async function handleJoinGame(
   const { gameId } = payload;
   const userId = socket.data.userId;
 
-  const gameState = await gameService.loadGame(gameId);
-
-  if (!gameState) {
-    throw new GameError('Game not found', gameId);
-  }
+  const gameState = await loadGameOrThrow(gameId);
 
   const isPlayer = userId === gameState.whitePlayerId || userId === gameState.blackPlayerId;
 
@@ -209,25 +286,13 @@ async function handleMakeMove(
 
   // If the game ended due to checkmate/stalemate/draw, emit GAME_ENDED
   if (gameEndInfo) {
-    await playerManager.removeUserActiveGame(gameState.whitePlayerId);
-    await playerManager.removeUserActiveGame(gameState.blackPlayerId);
-    await playerManager.setUserStatus(gameState.whitePlayerId, 'idle');
-    await playerManager.setUserStatus(gameState.blackPlayerId, 'idle');
+    await clearPlayersFromGame(gameState.whitePlayerId, gameState.blackPlayerId);
 
-    io.in(roomId).emit(SOCKET_EVENTS.GAME_ENDED, {
-      gameId,
+    emitGameEnded(io, gameId, {
       winner: gameEndInfo.winner,
       reason: gameEndInfo.reason,
       finalFen: gameState.currentFen,
-      eloChanges: {
-        white: gameEndInfo.ratings.whiteChange,
-        black: gameEndInfo.ratings.blackChange,
-      },
-      newRatings: {
-        white: gameEndInfo.ratings.whiteNewRating,
-        black: gameEndInfo.ratings.blackNewRating,
-      },
-      pgn: '',
+      ratings: gameEndInfo.ratings,
     });
 
     socket.data.log.info(
@@ -245,39 +310,20 @@ async function handleResign(
   const { gameId } = payload;
   const userId = socket.data.userId;
 
-  const ratings = await gameService.resignGame(gameId, userId);
+  const { ratings } = await gameService.resignGame(gameId, userId);
 
-  const gameState = await gameService.loadGame(gameId);
+  const gameState = await loadGameOrThrow(gameId);
 
-  if (!gameState) {
-    throw new GameError('Game not found', gameId);
-  }
+  await clearPlayersFromGame(gameState.whitePlayerId, gameState.blackPlayerId);
 
-  await playerManager.removeUserActiveGame(gameState.whitePlayerId);
-  await playerManager.removeUserActiveGame(gameState.blackPlayerId);
-  await playerManager.setUserStatus(gameState.whitePlayerId, 'idle');
-  await playerManager.setUserStatus(gameState.blackPlayerId, 'idle');
+  // The resigning player loses; the opponent wins.
+  const winner: Winner = userId === gameState.whitePlayerId ? 'BLACK' : 'WHITE';
 
-  const roomId = getGameRoomId(gameId);
-  io.in(roomId).emit(SOCKET_EVENTS.GAME_ENDED, {
-    gameId,
-    winner:
-      gameState.status === 'COMPLETED'
-        ? userId === gameState.whitePlayerId
-          ? 'BLACK'
-          : 'WHITE'
-        : 'DRAW',
+  emitGameEnded(io, gameId, {
+    winner,
     reason: 'RESIGNATION',
     finalFen: gameState.currentFen,
-    eloChanges: {
-      white: ratings.ratings.whiteChange,
-      black: ratings.ratings.blackChange,
-    },
-    newRatings: {
-      white: ratings.ratings.whiteNewRating,
-      black: ratings.ratings.blackNewRating,
-    },
-    pgn: '', // Will be populated from DB
+    ratings,
   });
 
   socket.data.log.info({ gameId }, 'resigned');
@@ -291,11 +337,7 @@ async function handleDrawOffer(
   const { gameId } = payload;
   const userId = socket.data.userId;
 
-  const gameState = await gameService.loadGame(gameId);
-
-  if (!gameState) {
-    throw new GameError('Game not found', gameId);
-  }
+  const gameState = await loadGameOrThrow(gameId);
 
   const isPlayer = userId === gameState.whitePlayerId || userId === gameState.blackPlayerId;
 
@@ -318,34 +360,17 @@ async function handleDrawAccept(
 ): Promise<void> {
   const { gameId } = payload;
 
-  const ratings = await gameService.acceptDraw(gameId);
+  const { ratings } = await gameService.acceptDraw(gameId);
 
-  const gameState = await gameService.loadGame(gameId);
+  const gameState = await loadGameOrThrow(gameId);
 
-  if (!gameState) {
-    throw new GameError('Game not found', gameId);
-  }
+  await clearPlayersFromGame(gameState.whitePlayerId, gameState.blackPlayerId);
 
-  await playerManager.removeUserActiveGame(gameState.whitePlayerId);
-  await playerManager.removeUserActiveGame(gameState.blackPlayerId);
-  await playerManager.setUserStatus(gameState.whitePlayerId, 'idle');
-  await playerManager.setUserStatus(gameState.blackPlayerId, 'idle');
-
-  const roomId = getGameRoomId(gameId);
-  io.in(roomId).emit(SOCKET_EVENTS.GAME_ENDED, {
-    gameId,
+  emitGameEnded(io, gameId, {
     winner: 'DRAW',
     reason: 'AGREEMENT',
     finalFen: gameState.currentFen,
-    eloChanges: {
-      white: ratings.ratings.whiteChange,
-      black: ratings.ratings.blackChange,
-    },
-    newRatings: {
-      white: ratings.ratings.whiteNewRating,
-      black: ratings.ratings.blackNewRating,
-    },
-    pgn: '',
+    ratings,
   });
 
   socket.data.log.info({ gameId }, 'draw accepted');
@@ -359,11 +384,7 @@ async function handleDrawDecline(
   const { gameId } = payload;
   const userId = socket.data.userId;
 
-  const gameState = await gameService.loadGame(gameId);
-
-  if (!gameState) {
-    throw new GameError('Game not found', gameId);
-  }
+  const gameState = await loadGameOrThrow(gameId);
 
   const opponentId =
     userId === gameState.whitePlayerId ? gameState.blackPlayerId : gameState.whitePlayerId;
@@ -380,11 +401,7 @@ async function handleAbort(
 ): Promise<void> {
   const { gameId } = payload;
 
-  const gameState = await gameService.loadGame(gameId);
-
-  if (!gameState) {
-    throw new GameError('Game not found', gameId);
-  }
+  const gameState = await loadGameOrThrow(gameId);
 
   if (gameState.moves.length >= 2) {
     throw new GameError('Game cannot be aborted after 2 moves have been made', gameId);

@@ -40,29 +40,41 @@ export function setupChallengeHandlers(io: TypedServer): void {
   io.on('connection', (socket: AuthenticatedSocket) => {
     socket.on(
       SOCKET_EVENTS.CREATE_CHALLENGE,
-      createHandler(socket, ChallengeCreateSchema, (payload) =>
-        handleCreateChallenge(io, socket, payload),
+      createHandler(
+        socket,
+        ChallengeCreateSchema,
+        (payload) => handleCreateChallenge(io, socket, payload),
+        { action: 'CHALLENGE_CREATE' },
       ),
     );
 
     socket.on(
       SOCKET_EVENTS.ACCEPT_CHALLENGE,
-      createHandler(socket, ChallengeResponseSchema, (payload) =>
-        handleAcceptChallenge(io, socket, payload),
+      createHandler(
+        socket,
+        ChallengeResponseSchema,
+        (payload) => handleAcceptChallenge(io, socket, payload),
+        { action: 'GENERAL' },
       ),
     );
 
     socket.on(
       SOCKET_EVENTS.DECLINE_CHALLENGE,
-      createHandler(socket, ChallengeResponseSchema, (payload) =>
-        handleDeclineChallenge(io, socket, payload),
+      createHandler(
+        socket,
+        ChallengeResponseSchema,
+        (payload) => handleDeclineChallenge(io, socket, payload),
+        { action: 'GENERAL' },
       ),
     );
 
     socket.on(
       SOCKET_EVENTS.CANCEL_CHALLENGE,
-      createHandler(socket, ChallengeResponseSchema, (payload) =>
-        handleCancelChallenge(io, socket, payload),
+      createHandler(
+        socket,
+        ChallengeResponseSchema,
+        (payload) => handleCancelChallenge(io, socket, payload),
+        { action: 'GENERAL' },
       ),
     );
   });

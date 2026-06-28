@@ -2,7 +2,6 @@ import {
   AuthenticatedSocket,
   getGameRoomId,
   getUserRoomId,
-  ServerToClientEvents,
   TypedServer,
 } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
@@ -144,39 +143,4 @@ function setupPingHandler(socket: AuthenticatedSocket): void {
       socket.data.lastPingAt = new Date();
     }),
   );
-}
-
-export async function isUserOnline(io: TypedServer, userId: string): Promise<boolean> {
-  const sockets = await io.in(getUserRoomId(userId)).fetchSockets();
-  return sockets.length > 0;
-}
-
-export async function getUserSockets(
-  io: TypedServer,
-  userId: string,
-): Promise<AuthenticatedSocket[]> {
-  const socketIds = await playerManager.getUserSockets(userId);
-  const sockets: AuthenticatedSocket[] = [];
-
-  for (const socketId of socketIds) {
-    const socket = io.sockets.sockets.get(socketId);
-    if (socket) {
-      sockets.push(socket as AuthenticatedSocket);
-    }
-  }
-
-  return sockets;
-}
-
-export async function broadcastToUser<E extends keyof ServerToClientEvents>(
-  io: TypedServer,
-  userId: string,
-  event: E,
-  ...args: Parameters<ServerToClientEvents[E]>
-): Promise<void> {
-  const socketIds = await playerManager.getUserSockets(userId);
-
-  for (const socketId of socketIds) {
-    io.to(socketId).emit(event, ...args);
-  }
 }

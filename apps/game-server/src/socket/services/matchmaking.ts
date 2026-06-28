@@ -8,6 +8,31 @@ import { gameService } from './game';
 const log = logger.child({ module: 'matchmaking' });
 
 /**
+ * Atomically claim a pair of players. Removes both from the queue hash and the
+ * time-control index in one round-trip, but only if BOTH are still queued.
+ * Returns 1 when the claim succeeds, 0 when either player was already taken.
+ *
+ * KEYS[1] = queue hash, KEYS[2] = time-control index (sorted set)
+ * ARGV[1] = playerId, ARGV[2] = opponentId
+ */
+const CLAIM_PAIR_SCRIPT = `
+if redis.call('HEXISTS', KEYS[1], ARGV[1]) == 1 and redis.call('HEXISTS', KEYS[1], ARGV[2]) == 1 then
+  redis.call('HDEL', KEYS[1], ARGV[1], ARGV[2])
+  redis.call('ZREM', KEYS[2], ARGV[1], ARGV[2])
+  return 1
+end
+return 0
+`;
+
+/** Release a lock only if the caller still owns it (KEYS[1] == ARGV[1]). */
+const RELEASE_LOCK_SCRIPT = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+`;
+
+/**
  * Matchmaking Service
  *
  * Implements a rating-based matchmaking system using a priority queue.
@@ -17,7 +42,7 @@ class MatchmakingService {
   // Redis keys
   private readonly QUEUE_KEY = 'matchmaking:queue';
   private readonly QUEUE_INDEX_KEY = 'matchmaking:queue:index';
-  private readonly ACTIVE_GAMES_KEY = 'matchmaking:active_games';
+  private readonly MATCHMAKER_LOCK_KEY = 'matchmaking:matcher:lock';
 
   // Time-based rating range expansion
   private readonly INITIAL_RATING_RANGE = 100;
@@ -70,9 +95,6 @@ class MatchmakingService {
       { userId, username: entry.username, rating: entry.rating, timeControl },
       'joined queue',
     );
-
-    // Attempt to find a match immediately
-    await this.findMatch(userId);
   }
 
   /**
@@ -100,69 +122,118 @@ class MatchmakingService {
   }
 
   /**
-   * Find a match for a player
-   * Uses ELO-based matching with time-based range expansion
+   * Current rating range for an entry, expanding the longer it waits.
    */
-  async findMatch(userId: string): Promise<QueueEntry | null> {
-    const playerStr = await redis.hget(this.QUEUE_KEY, userId);
-
-    if (!playerStr) {
-      return null;
-    }
-
-    const player: QueueEntry = JSON.parse(playerStr);
-    player.joinedAt = new Date(player.joinedAt);
-
-    // Calculate current rating range (expands over time)
-    const waitTime = Date.now() - player.joinedAt.getTime();
-    const waitTimeSeconds = waitTime / 1000;
-    const currentRange = Math.min(
-      player.ratingRange + waitTimeSeconds * this.RANGE_EXPANSION_PER_SECOND,
+  private currentRatingRange(entry: QueueEntry, now: number): number {
+    const waitSeconds = (now - new Date(entry.joinedAt).getTime()) / 1000;
+    return Math.min(
+      entry.ratingRange + waitSeconds * this.RANGE_EXPANSION_PER_SECOND,
       this.MAX_RATING_RANGE,
     );
+  }
 
-    // Get all players with same time control
-    const opponentIds = await redis.zrange(`${this.QUEUE_INDEX_KEY}:${player.timeControl}`, 0, -1);
+  /**
+   * Read the whole queue once and group players by time control, oldest first
+   * within each group. Cheap because only actively-searching players are present.
+   */
+  async getQueueGroupedByTimeControl(): Promise<Map<string, QueueEntry[]>> {
+    const all = await redis.hgetall(this.QUEUE_KEY);
+    const groups = new Map<string, QueueEntry[]>();
 
-    // Find best opponent
-    let bestOpponent: QueueEntry | null = null;
-    let smallestRatingDiff = Infinity;
-
-    for (const opponentId of opponentIds) {
-      if (typeof opponentId !== 'string') continue;
-      // Skip self
-      if (opponentId === userId) continue;
-
-      const opponentStr = await redis.hget(this.QUEUE_KEY, opponentId);
-      if (!opponentStr) continue;
-
-      const opponent: QueueEntry = JSON.parse(opponentStr);
-      opponent.joinedAt = new Date(opponent.joinedAt);
-
-      // Calculate rating difference
-      const ratingDiff = Math.abs(player.rating - opponent.rating);
-
-      // Check if within range
-      if (ratingDiff > currentRange) continue;
-
-      // Check if opponent's range also includes this player
-      const opponentWaitTime = Date.now() - opponent.joinedAt.getTime();
-      const opponentWaitSeconds = opponentWaitTime / 1000;
-      const opponentCurrentRange = Math.min(
-        opponent.ratingRange + opponentWaitSeconds * this.RANGE_EXPANSION_PER_SECOND,
-        this.MAX_RATING_RANGE,
-      );
-
-      if (ratingDiff > opponentCurrentRange) continue;
-
-      // Track best match (closest rating)
-      if (ratingDiff < smallestRatingDiff) {
-        smallestRatingDiff = ratingDiff;
-        bestOpponent = opponent;
+    for (const entryStr of Object.values(all)) {
+      const entry: QueueEntry = JSON.parse(entryStr);
+      entry.joinedAt = new Date(entry.joinedAt);
+      const group = groups.get(entry.timeControl);
+      if (group) {
+        group.push(entry);
+      } else {
+        groups.set(entry.timeControl, [entry]);
       }
     }
 
-    return bestOpponent;
+    for (const group of groups.values()) {
+      group.sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime());
+    }
+
+    return groups;
+  }
+
+  /**
+   * Greedily pair players within a single time-control group. Oldest players are
+   * matched first (fairness); each is paired with the closest-rated opponent that
+   * falls within BOTH players' (time-expanded) rating ranges.
+   *
+   * Pure/in-memory: the returned pairs are *candidates* — callers must still
+   * atomically claim each pair via {@link claimPair} before creating a game.
+   */
+  computeMatches(entries: QueueEntry[]): Array<{ player: QueueEntry; opponent: QueueEntry }> {
+    const now = Date.now();
+    const paired = new Set<string>();
+    const matches: Array<{ player: QueueEntry; opponent: QueueEntry }> = [];
+
+    for (let i = 0; i < entries.length; i++) {
+      const player = entries[i];
+      if (!player || paired.has(player.userId)) continue;
+
+      let best: QueueEntry | null = null;
+      let smallestDiff = Infinity;
+
+      for (let j = i + 1; j < entries.length; j++) {
+        const opponent = entries[j];
+        if (!opponent || paired.has(opponent.userId)) continue;
+
+        const ratingDiff = Math.abs(player.rating - opponent.rating);
+        if (ratingDiff > this.currentRatingRange(player, now)) continue;
+        if (ratingDiff > this.currentRatingRange(opponent, now)) continue;
+
+        if (ratingDiff < smallestDiff) {
+          smallestDiff = ratingDiff;
+          best = opponent;
+        }
+      }
+
+      if (best) {
+        paired.add(player.userId);
+        paired.add(best.userId);
+        matches.push({ player, opponent: best });
+      }
+    }
+
+    return matches;
+  }
+
+  /**
+   * Atomically claim a pair: remove both players from the queue in one Redis
+   * round-trip, but only if BOTH are still present. Returns true when this caller
+   * won the claim (and may create the game), false if either player was already
+   * taken by a concurrent matcher (possibly on another instance).
+   */
+  async claimPair(playerId: string, opponentId: string, timeControl: string): Promise<boolean> {
+    const result = (await redis.eval(
+      CLAIM_PAIR_SCRIPT,
+      2,
+      this.QUEUE_KEY,
+      `${this.QUEUE_INDEX_KEY}:${timeControl}`,
+      playerId,
+      opponentId,
+    )) as number;
+
+    return result === 1;
+  }
+
+  /**
+   * Try to become the matchmaker leader for one tick. Only the holder runs the
+   * matching pass, so multiple instances don't duplicate work or QUEUE_STATUS
+   * emits. {@link claimPair} remains the ultimate safety net.
+   */
+  async acquireMatchmakerLock(instanceId: string, ttlMs: number): Promise<boolean> {
+    const result = await redis.set(this.MATCHMAKER_LOCK_KEY, instanceId, 'PX', ttlMs, 'NX');
+    return result === 'OK';
+  }
+
+  /** Release the matchmaker leader lock, but only if we still own it. */
+  async releaseMatchmakerLock(instanceId: string): Promise<void> {
+    await redis.eval(RELEASE_LOCK_SCRIPT, 1, this.MATCHMAKER_LOCK_KEY, instanceId);
   }
 
   /**
@@ -198,9 +269,7 @@ class MatchmakingService {
       true,
     );
 
-    // Remove both players from queue
-    this.removeFromQueue(player1.userId);
-    this.removeFromQueue(player2.userId);
+    // Both players were already removed from the queue by the atomic claim.
 
     log.info(
       {
@@ -269,26 +338,6 @@ class MatchmakingService {
   }
 
   /**
-   * Get all players in queue for a specific time control
-   */
-  async getQueueByTimeControl(timeControl: string): Promise<QueueEntry[]> {
-    const userIds = await redis.zrange(`${this.QUEUE_INDEX_KEY}:${timeControl}`, 0, -1);
-
-    const entries: QueueEntry[] = [];
-
-    for (const userId of userIds) {
-      const entryStr = await redis.hget(this.QUEUE_KEY, userId);
-      if (entryStr) {
-        const entry: QueueEntry = JSON.parse(entryStr);
-        entry.joinedAt = new Date(entry.joinedAt);
-        entries.push(entry);
-      }
-    }
-
-    return entries;
-  }
-
-  /**
    * Clean up expired queue entries
    */
   async cleanup(): Promise<void> {
@@ -321,13 +370,6 @@ class MatchmakingService {
     });
 
     return !!activeGame;
-  }
-
-  /**
-   * Get total players in queue
-   */
-  async getTotalPlayersInQueue(): Promise<number> {
-    return await redis.hlen(this.QUEUE_KEY);
   }
 
   /**

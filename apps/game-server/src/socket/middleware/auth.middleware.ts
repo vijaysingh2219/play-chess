@@ -2,7 +2,6 @@ import { auth } from '@workspace/auth/server'; // Your Better Auth instance
 import { AuthenticatedSocket } from '@workspace/contracts';
 import { prisma } from '@workspace/db';
 import { logger } from '@workspace/logger';
-import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { Socket } from 'socket.io';
 import { AuthenticationError } from './error.middleware';
 
@@ -66,20 +65,4 @@ export const authMiddleware = async (
     log.error({ err: error }, 'authentication failed');
     next(new AuthenticationError('Internal server error'));
   }
-};
-
-export const requireAuth = (socket: AuthenticatedSocket, callback: () => void): void => {
-  if (!socket.data?.userId) {
-    socket.emit(SOCKET_EVENTS.AUTHENTICATION_ERROR, {
-      code: 'AUTHENTICATION_ERROR',
-      message: 'You must be authenticated to perform this action',
-    });
-    return;
-  }
-
-  callback();
-};
-
-export const isAuthenticated = (socket: Socket): socket is AuthenticatedSocket => {
-  return !!(socket as AuthenticatedSocket).data?.userId;
 };

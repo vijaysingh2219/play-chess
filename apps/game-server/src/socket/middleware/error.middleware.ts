@@ -1,120 +1,101 @@
-import { AuthenticatedSocket, SocketError } from '@workspace/contracts';
+import { AuthenticatedSocket } from '@workspace/contracts';
 import { logger } from '@workspace/logger';
 import { SOCKET_EVENTS } from '@workspace/utils/constants';
 import { Socket } from 'socket.io';
 
 const log = logger.child({ module: 'socket:error' });
 
-export const errorHandler =
-  <T>(socket: Socket, handler: (...args: T[]) => Promise<void> | void) =>
-  async (...args: T[]) => {
-    try {
-      await handler(...args);
-    } catch (error) {
-      // Validate socket before using
-      if (!socket || typeof socket.emit !== 'function' || typeof socket.on !== 'function') {
-        log.error('invalid socket instance passed to errorHandler');
-        return;
-      }
-      handleSocketError(socket, error);
-    }
-  };
+export type SocketErrorCode =
+  | 'AUTHENTICATION_ERROR'
+  | 'VALIDATION_ERROR'
+  | 'GAME_ERROR'
+  | 'MATCHMAKING_ERROR'
+  | 'RATE_LIMIT_ERROR'
+  | 'SERVER_ERROR';
 
-export const handleSocketError = (socket: Socket, error: unknown): void => {
-  (socket.data?.log ?? log).error({ err: error }, 'socket handler error');
+/** Maps an error code to the client event it is emitted on. */
+const ERROR_EVENT_BY_CODE = {
+  AUTHENTICATION_ERROR: SOCKET_EVENTS.AUTHENTICATION_ERROR,
+  VALIDATION_ERROR: SOCKET_EVENTS.VALIDATION_ERROR,
+  GAME_ERROR: SOCKET_EVENTS.GAME_ERROR,
+  MATCHMAKING_ERROR: SOCKET_EVENTS.MATCHMAKING_ERROR,
+  RATE_LIMIT_ERROR: SOCKET_EVENTS.RATE_LIMIT_ERROR,
+  SERVER_ERROR: SOCKET_EVENTS.SERVER_ERROR,
+} as const satisfies Record<SocketErrorCode, string>;
 
-  let socketError: SocketError;
+/**
+ * Base class for all socket errors. Carries a machine-readable `code` so the
+ * error can be routed to the right client event without parsing messages.
+ */
+export abstract class AppSocketError extends Error {
+  abstract readonly code: SocketErrorCode;
+}
 
-  if (error instanceof Error) {
-    // Parse custom error types
-    if (error.message.startsWith('AUTHENTICATION_ERROR:')) {
-      socketError = {
-        code: 'AUTHENTICATION_ERROR',
-        message: error.message.replace('AUTHENTICATION_ERROR:', '').trim(),
-      };
-      socket.emit(SOCKET_EVENTS.AUTHENTICATION_ERROR, socketError);
-    } else if (error.message.startsWith('VALIDATION_ERROR:')) {
-      socketError = {
-        code: 'VALIDATION_ERROR',
-        message: error.message.replace('VALIDATION_ERROR:', '').trim(),
-      };
-      socket.emit(SOCKET_EVENTS.VALIDATION_ERROR, socketError);
-    } else if (error.message.startsWith('GAME_ERROR:')) {
-      socketError = {
-        code: 'GAME_ERROR',
-        message: error.message.replace('GAME_ERROR:', '').trim(),
-      };
-      socket.emit(SOCKET_EVENTS.GAME_ERROR, socketError);
-    } else if (error.message.startsWith('MATCHMAKING_ERROR:')) {
-      socketError = {
-        code: 'MATCHMAKING_ERROR',
-        message: error.message.replace('MATCHMAKING_ERROR:', '').trim(),
-      };
-      socket.emit(SOCKET_EVENTS.MATCHMAKING_ERROR, socketError);
-    } else if (error.message.startsWith('RATE_LIMIT_ERROR:')) {
-      socketError = {
-        code: 'RATE_LIMIT_ERROR',
-        message: error.message.replace('RATE_LIMIT_ERROR:', '').trim(),
-      };
-      socket.emit(SOCKET_EVENTS.RATE_LIMIT_ERROR, socketError);
-    } else {
-      // Generic error
-      socketError = {
-        code: 'SERVER_ERROR',
-        message: 'An unexpected error occurred',
-      };
-      socket.emit(SOCKET_EVENTS.SERVER_ERROR, socketError);
-    }
-  } else {
-    // Unknown error type
-    socketError = {
-      code: 'SERVER_ERROR',
-      message: 'An unexpected error occurred',
-    };
-    socket.emit(SOCKET_EVENTS.SERVER_ERROR, socketError);
-  }
-};
+export class AuthenticationError extends AppSocketError {
+  readonly code = 'AUTHENTICATION_ERROR';
 
-export class AuthenticationError extends Error {
   constructor(message: string) {
-    super(`AUTHENTICATION_ERROR: ${message}`);
+    super(message);
     this.name = 'AuthenticationError';
   }
 }
 
-export class ValidationError extends Error {
-  public field?: string;
+export class ValidationError extends AppSocketError {
+  readonly code = 'VALIDATION_ERROR';
+  readonly field?: string;
 
   constructor(message: string, field?: string) {
-    super(`VALIDATION_ERROR: ${message}`);
+    super(message);
     this.name = 'ValidationError';
     this.field = field;
   }
 }
 
-export class GameError extends Error {
-  public gameId?: string;
+export class GameError extends AppSocketError {
+  readonly code = 'GAME_ERROR';
+  readonly gameId?: string;
 
   constructor(message: string, gameId?: string) {
-    super(`GAME_ERROR: ${message}`);
+    super(message);
     this.name = 'GameError';
     this.gameId = gameId;
   }
 }
 
-export class MatchmakingError extends Error {
+export class MatchmakingError extends AppSocketError {
+  readonly code = 'MATCHMAKING_ERROR';
+
   constructor(message: string) {
-    super(`MATCHMAKING_ERROR: ${message}`);
+    super(message);
     this.name = 'MatchmakingError';
   }
 }
 
-export class RateLimitError extends Error {
-  constructor(message: string = 'Rate limit exceeded. Please slow down.') {
-    super(`RATE_LIMIT_ERROR: ${message}`);
+export class RateLimitError extends AppSocketError {
+  readonly code = 'RATE_LIMIT_ERROR';
+
+  constructor(message = 'Rate limit exceeded. Please slow down.') {
+    super(message);
     this.name = 'RateLimitError';
   }
 }
+
+/** Normalize any thrown value into a client-safe { code, message } pair. */
+function toSocketError(error: unknown): { code: SocketErrorCode; message: string } {
+  if (error instanceof AppSocketError) {
+    return { code: error.code, message: error.message };
+  }
+
+  // Unknown/unexpected errors are not surfaced verbatim to avoid leaking internals.
+  return { code: 'SERVER_ERROR', message: 'An unexpected error occurred' };
+}
+
+export const handleSocketError = (socket: Socket, error: unknown): void => {
+  (socket.data?.log ?? log).error({ err: error }, 'socket handler error');
+
+  const socketError = toSocketError(error);
+  socket.emit(ERROR_EVENT_BY_CODE[socketError.code], socketError);
+};
 
 export const asyncHandler = <T>(
   socket: AuthenticatedSocket,
