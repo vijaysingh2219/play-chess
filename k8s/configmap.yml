@@ -6,4 +6,4 @@ metadata:
 data:
   NODE_ENV: "production"
   # Used by Next.js next.config.mjs to proxy /api/v1/* → API service at /api/*
-  API_INTERNAL_URL: "http://play-chess-api-service.play-chess.svc.cluster.local:4000"
+  API_INTERNAL_URL: "http://play-chess-game-server-service.play-chess.svc.cluster.local:4000"

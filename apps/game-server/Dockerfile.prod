@@ -18,7 +18,7 @@ RUN npm install -g pnpm \
 # Set working directory
 WORKDIR /app
 COPY . .
-RUN turbo prune api --docker
+RUN turbo prune game-server --docker
 
 # Add lockfile and package.json's of isolated subworkspace
 FROM base AS installer
@@ -64,12 +64,12 @@ RUN addgroup --system --gid 1001 expressjs
 RUN adduser --system --uid 1001 expressjs
 
 # Copy only production dependencies and built output
-COPY --from=installer --chown=expressjs:expressjs /app/apps/api/dist ./apps/api/dist
+COPY --from=installer --chown=expressjs:expressjs /app/apps/game-server/dist ./apps/game-server/dist
 COPY --from=installer --chown=expressjs:expressjs /app/packages/db/generated ./packages/db/generated
 COPY --from=installer --chown=expressjs:expressjs /app/node_modules ./node_modules
-COPY --from=installer --chown=expressjs:expressjs /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=installer --chown=expressjs:expressjs /app/apps/game-server/node_modules ./apps/game-server/node_modules
 COPY --from=installer --chown=expressjs:expressjs /app/packages ./packages
 
 USER expressjs
 
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["node", "apps/game-server/dist/index.js"]

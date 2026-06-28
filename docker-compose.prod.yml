@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: ./apps/web/Dockerfile.prod
       args:
-        API_INTERNAL_URL: http://play-chess-api-service.play-chess.svc.cluster.local:4000
+        API_INTERNAL_URL: http://play-chess-game-server-service.play-chess.svc.cluster.local:4000
     env_file:
       - ./apps/web/.env.production
     ports:
@@ -15,19 +15,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      api:
+      game-server:
         condition: service_started
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
 
-  api:
-    container_name: play-chess-api
+  game-server:
+    container_name: play-chess-game-server
     build:
       context: .
-      dockerfile: ./apps/api/Dockerfile.prod
+      dockerfile: ./apps/game-server/Dockerfile.prod
     env_file:
-      - ./apps/api/.env.production
+      - ./apps/game-server/.env.production
     ports:
       - 4000:4000
     networks:

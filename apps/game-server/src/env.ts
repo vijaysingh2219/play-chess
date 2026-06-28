@@ -6,4 +6,4 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Logger `service` base field. Set before `@workspace/logger` loads in index.ts.
-process.env.SERVICE_NAME ??= 'api';
+process.env.SERVICE_NAME ??= 'game-server';

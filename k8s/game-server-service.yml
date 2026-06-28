@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: play-chess-api-service
+  name: play-chess-game-server-service
   namespace: play-chess
   labels:
-    app: play-chess-api
+    app: play-chess-game-server
 spec:
   selector:
-    app: play-chess-api
+    app: play-chess-game-server
   ports:
     - protocol: TCP
       port: 4000

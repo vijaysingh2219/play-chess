@@ -330,7 +330,29 @@ importers:
         specifier: catalog:dev
         version: 5.9.3
 
-  apps/api:
+  apps/email:
+    dependencies:
+      '@react-email/ui':
+        specifier: catalog:core
+        version: 6.1.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: catalog:core
+        version: 19.2.7
+      react-email:
+        specifier: catalog:core
+        version: 6.1.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+    devDependencies:
+      '@types/node':
+        specifier: catalog:dev
+        version: 25.8.0
+      '@workspace/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      typescript:
+        specifier: catalog:dev
+        version: 5.9.3
+
+  apps/game-server:
     dependencies:
       '@socket.io/redis-adapter':
         specifier: catalog:server
@@ -435,28 +457,6 @@ importers:
       vitest:
         specifier: catalog:dev
         version: 4.1.7(@types/node@25.8.0)(@vitest/coverage-v8@4.1.7)(jsdom@29.0.1(@noble/hashes@2.0.1))(vite@8.0.3(@emnapi/core@1.5.0)(@emnapi/runtime@1.9.1)(@types/node@25.8.0)(jiti@2.6.1)(tsx@4.22.1)(yaml@2.8.2))
-
-  apps/email:
-    dependencies:
-      '@react-email/ui':
-        specifier: catalog:core
-        version: 6.1.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      react:
-        specifier: catalog:core
-        version: 19.2.7
-      react-email:
-        specifier: catalog:core
-        version: 6.1.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-    devDependencies:
-      '@types/node':
-        specifier: catalog:dev
-        version: 25.8.0
-      '@workspace/typescript-config':
-        specifier: workspace:*
-        version: link:../../packages/typescript-config
-      typescript:
-        specifier: catalog:dev
-        version: 5.9.3
 
   apps/studio:
     devDependencies:

@@ -38,7 +38,7 @@ This is a full-stack monorepo built with [Turborepo](https://turborepo.org/), co
 ### Applications
 
 - **apps/web** — Next.js 15 app with Turbopack, authentication, and modern UI
-- **apps/api** — Express server with Socket.IO for real-time gameplay
+- **apps/game-server** — Express server with Socket.IO for real-time gameplay
 - **apps/email** — React Email templates with hot reload preview
 - **apps/studio** — Prisma Studio for database management
 
@@ -130,7 +130,7 @@ pnpm dev
 play-chess/
 ├── apps/
 │   ├── web/
-│   ├── api/
+│   ├── game-server/
 │   ├── email/
 │   └── studio/
 ├── packages/
@@ -195,7 +195,7 @@ See [Kubernetes docs](https://build-elevate.vercel.app/docs/deployment/kubernete
 
 - [Web App Documentation](apps/web/README.md) - Next.js application
 - [UI Components Guide](packages/ui/README.md) - shadcn/ui components
-- [API Documentation](apps/api/README.md) - Express server
+- [Game Server Documentation](apps/game-server/README.md) - Express server
 
 ## License
 

@@ -7,10 +7,10 @@ PROJECT="play-chess"
 NAMESPACE="play-chess"
 
 # Apps are built and deployed only when their Kubernetes manifests are present,
-# so this script works for full-stack, web-only, and api-only projects without
-# any edits.
+# so this script works for full-stack, web-only, and game-server-only projects
+# without any edits.
 apps=()
-[ -f "k8s/api-deployment.yml" ] && apps+=("api")
+[ -f "k8s/game-server-deployment.yml" ] && apps+=("game-server")
 [ -f "k8s/web-deployment.yml" ] && apps+=("web")
 
 if [ ${#apps[@]} -eq 0 ]; then

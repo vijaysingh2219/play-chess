@@ -1,13 +1,13 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: play-chess-api-hpa
+  name: play-chess-game-server-hpa
   namespace: play-chess
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: play-chess-api-deployment
+    name: play-chess-game-server-deployment
   minReplicas: 2
   maxReplicas: 10
   metrics:

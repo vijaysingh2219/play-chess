@@ -10,7 +10,7 @@ FAIL=0
 
 # Detect which apps were deployed from the manifests that exist.
 apps=()
-[ -f "k8s/api-deployment.yml" ] && apps+=("api")
+[ -f "k8s/game-server-deployment.yml" ] && apps+=("game-server")
 [ -f "k8s/web-deployment.yml" ] && apps+=("web")
 
 green() { printf '\033[32m%s\033[0m\n' "$1"; }
@@ -64,9 +64,9 @@ run_curl() {
     curl -sf -m 5 "$1" >/dev/null 2>&1
 }
 for app in "${apps[@]}"; do
-  if [ "$app" = "api" ]; then
-    check "api /healthz reachable" run_curl "http://$PROJECT-api-service:4000/healthz"
-    check "api /readyz reachable"  run_curl "http://$PROJECT-api-service:4000/readyz"
+  if [ "$app" = "game-server" ]; then
+    check "game-server /healthz reachable" run_curl "http://$PROJECT-game-server-service:4000/healthz"
+    check "game-server /readyz reachable"  run_curl "http://$PROJECT-game-server-service:4000/readyz"
   elif [ "$app" = "web" ]; then
     check "web / reachable"        run_curl "http://$PROJECT-web-service:3000/"
   fi
@@ -74,9 +74,9 @@ done
 
 hr "Ingress"
 kubectl get ingress -n "$NAMESPACE"
-# Prefer the web ingress address; fall back to the api ingress for api-only.
+# Prefer the web ingress address; fall back to the game-server ingress.
 INGRESS_NAME="$PROJECT-web-ingress"
-kubectl get ingress "$INGRESS_NAME" -n "$NAMESPACE" >/dev/null 2>&1 || INGRESS_NAME="$PROJECT-api-ingress"
+kubectl get ingress "$INGRESS_NAME" -n "$NAMESPACE" >/dev/null 2>&1 || INGRESS_NAME="$PROJECT-game-server-ingress"
 ADDRESS=$(kubectl get ingress "$INGRESS_NAME" -n "$NAMESPACE" \
   -o jsonpath='{.status.loadBalancer.ingress[0].ip}{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
 if [ -n "$ADDRESS" ]; then
