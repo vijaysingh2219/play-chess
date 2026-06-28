@@ -233,7 +233,7 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
 
   // Render chessboard
   const chessboard = (
-    <div className="mx-auto aspect-square w-full max-w-156.25 rounded-xl border-2 shadow-lg">
+    <div className="aspect-square h-full w-full rounded-xl border-2 shadow-lg">
       <ReactChessboard
         options={{
           position: viewingFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -374,7 +374,7 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
         <h3 className="text-sm font-medium">Move History</h3>
       </div>
       <div
-        className="`max-h-100 overflow-y-auto"
+        className="max-h-100 overflow-y-auto"
         role="log"
         aria-label="Chess move history"
         aria-live="polite"

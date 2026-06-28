@@ -59,7 +59,7 @@ export const NewOnlineGame: React.FC<NewOnlineGameProps> = ({ className }) => {
   }, [user]);
 
   const chessboard = (
-    <div className="mx-auto aspect-square w-full max-w-156.25 rounded-xl border-2 shadow-lg">
+    <div className="aspect-square h-full w-full rounded-xl border-2 shadow-lg">
       <ReactChessboard
         options={{
           position: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',

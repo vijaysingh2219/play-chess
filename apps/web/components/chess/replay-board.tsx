@@ -154,7 +154,7 @@ export function ReplayBoard({ className, gameId }: { className?: string; gameId:
 
   // Render chessboard
   const chessboard = (
-    <div className="mx-auto aspect-square w-full max-w-[625px] rounded-xl border-2 shadow-lg">
+    <div className="aspect-square h-full w-full rounded-xl border-2 shadow-lg">
       <Chessboard
         options={{
           position: fen,
@@ -326,7 +326,7 @@ export function ReplayBoard({ className, gameId }: { className?: string; gameId:
       <div className="border-b p-3">
         <h3 className="text-sm font-medium">Move History</h3>
       </div>
-      <div className="max-h-[400px] overflow-y-auto" role="log" aria-label="Chess move history">
+      <div className="max-h-100 overflow-y-auto" role="log" aria-label="Chess move history">
         <MoveHistory
           moves={moveList}
           onMoveClick={(index) => goToMove(index)}
