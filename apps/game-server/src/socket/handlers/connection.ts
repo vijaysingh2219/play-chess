@@ -10,7 +10,7 @@ import { createHandler } from '../middleware/validation.middleware';
 import { PingCheckSchema } from '../schemas';
 import { gameService } from '../services/game';
 import { matchmakingService } from '../services/matchmaking';
-import { playerManager } from '../services/player-manager';
+import { broadcastPresenceToFriends, countUserSockets } from '../services/presence';
 
 export function setupConnectionHandlers(io: TypedServer): void {
   io.on('connection', async (socket: AuthenticatedSocket) => {
@@ -19,11 +19,15 @@ export function setupConnectionHandlers(io: TypedServer): void {
 
     socket.data.log.info('connected');
 
-    // Register socket with PlayerManager
-    await playerManager.addSocket(userId, socket.id);
-
-    // Join user's personal room for direct messages
+    // Join user's personal room for direct messages. Presence is derived from
+    // this room's membership (see services/presence).
     socket.join(getUserRoomId(userId));
+
+    // First connection for this user → they just came online; tell their friends.
+    const socketCount = await countUserSockets(io, userId);
+    if (socketCount === 1) {
+      await broadcastPresenceToFriends(io, userId, true);
+    }
 
     // Send authentication confirmation
     socket.emit(SOCKET_EVENTS.USER_AUTHENTICATED, {
@@ -40,7 +44,7 @@ export function setupConnectionHandlers(io: TypedServer): void {
 
     // Handle disconnection
     socket.on(SOCKET_EVENTS.DISCONNECT, async () => {
-      await handleDisconnect(socket);
+      await handleDisconnect(io, socket);
     });
   });
 }
@@ -105,14 +109,18 @@ async function handleReconnection(socket: AuthenticatedSocket): Promise<void> {
   }
 }
 
-async function handleDisconnect(socket: AuthenticatedSocket): Promise<void> {
+async function handleDisconnect(io: TypedServer, socket: AuthenticatedSocket): Promise<void> {
   const userId = socket.data.userId;
 
   socket.data.log.info('disconnected');
 
   try {
-    // Remove socket from PlayerManager
-    await playerManager.removeSocket(userId, socket.id);
+    // The socket has already left its rooms by the time `disconnect` fires, so a
+    // count of 0 means this was the user's last connection → they're now offline.
+    const remaining = await countUserSockets(io, userId);
+    if (remaining === 0) {
+      await broadcastPresenceToFriends(io, userId, false);
+    }
 
     // Remove from matchmaking queue
     matchmakingService.removeFromQueue(userId);

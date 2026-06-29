@@ -75,6 +75,15 @@ export const CHALLENGE_EVENTS = {
 } as const;
 
 // ========================================
+// PRESENCE EVENTS
+// ========================================
+export const PRESENCE_EVENTS = {
+  REQUEST_FRIENDS_PRESENCE: 'presence:friends_request',
+  FRIENDS_PRESENCE_SNAPSHOT: 'presence:friends_snapshot',
+  FRIEND_PRESENCE_UPDATE: 'presence:friend_update',
+} as const;
+
+// ========================================
 // ERROR EVENTS
 // ========================================
 export const ERROR_EVENTS = {
@@ -91,6 +100,7 @@ export const SOCKET_EVENTS = {
   ...GAME_EVENTS,
   ...TERMINATION_EVENTS,
   ...CHALLENGE_EVENTS,
+  ...PRESENCE_EVENTS,
   ...ERROR_EVENTS,
 } as const;
 

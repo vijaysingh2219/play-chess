@@ -11,6 +11,7 @@ import { setupChallengeHandlers } from './handlers/challenge';
 import { setupConnectionHandlers } from './handlers/connection';
 import { setupGameHandlers } from './handlers/game';
 import { setupMatchmakingHandlers } from './handlers/matchmaking';
+import { setupPresenceHandlers } from './handlers/presence';
 import { authMiddleware } from './middleware/auth.middleware';
 import { setupRedisAdapter } from './redis';
 
@@ -60,6 +61,7 @@ export async function initializeSocketServer(httpServer: HTTPServer): Promise<Ty
   setupMatchmakingHandlers(io);
   setupGameHandlers(io);
   setupChallengeHandlers(io);
+  setupPresenceHandlers(io);
 
   processChallengeExpirationQueue(io);
 

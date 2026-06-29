@@ -5,6 +5,7 @@ import { useFriends } from '@/hooks/queries/friends';
 import { useSubscription } from '@/hooks/subscriptions';
 import { useRequiredAuthUser } from '@/hooks/use-auth-user';
 import { useChallenge } from '@/hooks/use-challenge';
+import { useFriendsPresence } from '@/hooks/use-friends-presence';
 import { defaultTimeControl, timeControls } from '@/lib/time-controls';
 import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
@@ -60,6 +61,7 @@ interface Friend {
 const Friends = ({ userId }: { userId: string }) => {
   const router = useRouter();
   const { data: friends } = useFriends(userId);
+  const { onlineFriendIds } = useFriendsPresence();
   const removeFriendMutation = useRemoveFriend(userId);
   const blockFriendMutation = useBlockFriend(userId);
   const { user } = useRequiredAuthUser();
@@ -131,77 +133,92 @@ const Friends = ({ userId }: { userId: string }) => {
               </TableCell>
             </TableRow>
           )}
-          {friends?.map((friend: Friend) => (
-            <TableRow key={friend.id}>
-              <TableCell>
-                <Avatar>
-                  <AvatarImage src={friend.user.image} alt={friend.user.username} />
-                  <AvatarFallback>{friend.user.username[0]}</AvatarFallback>
-                </Avatar>
-              </TableCell>
-              <TableCell>{friend.user.username}</TableCell>
-              <TableCell>{friend.user.rating}</TableCell>
-              <TableCell>{formatDate(friend.createdAt, 'PPP')}</TableCell>
-              <TableCell className="flex justify-center">
-                <div className="flex space-x-2">
+          {friends?.map((friend: Friend) => {
+            const isOnline = onlineFriendIds.has(friend.user.id);
+            return (
+              <TableRow key={friend.id}>
+                <TableCell>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleChallengeClick(friend.user.id)}
-                      >
-                        <Swords className="h-4 w-4" />
-                      </Button>
+                      <div className="relative w-fit">
+                        <Avatar>
+                          <AvatarImage src={friend.user.image} alt={friend.user.username} />
+                          <AvatarFallback>{friend.user.username[0]}</AvatarFallback>
+                        </Avatar>
+                        <span
+                          className={`border-background absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 ${
+                            isOnline ? 'bg-green-500' : 'bg-muted-foreground'
+                          }`}
+                        />
+                      </div>
                     </TooltipTrigger>
-                    <TooltipContent>Challenge to a game</TooltipContent>
+                    <TooltipContent>{isOnline ? 'Online' : 'Offline'}</TooltipContent>
                   </Tooltip>
+                </TableCell>
+                <TableCell>{friend.user.username}</TableCell>
+                <TableCell>{friend.user.rating}</TableCell>
+                <TableCell>{formatDate(friend.createdAt, 'PPP')}</TableCell>
+                <TableCell className="flex justify-center">
+                  <div className="flex space-x-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleChallengeClick(friend.user.id)}
+                        >
+                          <Swords className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Challenge to a game</TooltipContent>
+                    </Tooltip>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewProfile(friend.user.username)}
-                      >
-                        <User className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>View profile</TooltipContent>
-                  </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewProfile(friend.user.username)}
+                        >
+                          <User className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>View profile</TooltipContent>
+                    </Tooltip>
 
-                  {sessionUserId === userId && (
-                    <>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveFriend(friend.id)}
-                          >
-                            <UserX className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Remove friend</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleBlockFriend(friend.id)}
-                          >
-                            <Ban className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Block user</TooltipContent>
-                      </Tooltip>
-                    </>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                    {sessionUserId === userId && (
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveFriend(friend.id)}
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Remove friend</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleBlockFriend(friend.id)}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Block user</TooltipContent>
+                        </Tooltip>
+                      </>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
 

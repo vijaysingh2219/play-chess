@@ -243,6 +243,28 @@ export interface PingCheckPayload {
   timestamp: number;
 }
 
+// ========================================
+// PRESENCE TYPES
+// ========================================
+
+/**
+ * Snapshot of which of the requesting user's friends are currently online.
+ * Sent in response to a friends-presence request (e.g. when the friends page mounts).
+ */
+export interface FriendsPresenceSnapshotPayload {
+  /** User IDs of friends with at least one active socket connection. */
+  online: string[];
+}
+
+/**
+ * Real-time delta pushed to a user when one of their friends connects or
+ * fully disconnects (their last socket drops).
+ */
+export interface FriendPresenceUpdatePayload {
+  userId: string;
+  online: boolean;
+}
+
 export interface PongResponsePayload {
   timestamp: number;
   latency: number; // in milliseconds
@@ -306,6 +328,9 @@ export interface ClientToServerEvents {
   'challenge:accept': (payload: AcceptChallengePayload) => void;
   'challenge:decline': (payload: { challengeId: string }) => void;
   'challenge:cancel': (payload: { challengeId: string }) => void;
+
+  // Presence
+  'presence:friends_request': () => void;
 }
 
 /**
@@ -341,6 +366,10 @@ export interface ServerToClientEvents {
   'challenge:declined': () => void;
   'challenge:cancelled': () => void;
   'challenge:expired': (payload: { challengeId: string }) => void;
+
+  // Presence
+  'presence:friends_snapshot': (payload: FriendsPresenceSnapshotPayload) => void;
+  'presence:friend_update': (payload: FriendPresenceUpdatePayload) => void;
 
   // Errors
   'error:authentication': (error: AuthenticationError) => void;
