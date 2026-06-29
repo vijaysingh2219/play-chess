@@ -70,26 +70,6 @@ export async function canUserJoinGame(
   return { allowed: true };
 }
 
-export async function getUserActiveGames(userId: string) {
-  return await prisma.game.findMany({
-    where: {
-      OR: [{ whitePlayerId: userId }, { blackPlayerId: userId }],
-      status: 'ONGOING',
-    },
-    include: {
-      whitePlayer: {
-        select: { id: true, username: true, rating: true },
-      },
-      blackPlayer: {
-        select: { id: true, username: true, rating: true },
-      },
-    },
-    orderBy: {
-      startedAt: 'desc',
-    },
-  });
-}
-
 export async function validateMatchmakingEligibility(userId: string): Promise<void> {
   const check = await canUserJoinGame(userId, 'QUICK_MATCH');
 
@@ -104,15 +84,5 @@ export async function validateMatchmakingEligibility(userId: string): Promise<vo
 
   if (!user) {
     throw new Error('User not found');
-  }
-}
-
-export async function cleanupStaleGames(userId: string): Promise<void> {
-  const activeGames = await getUserActiveGames(userId);
-
-  // Remove from PlayerManager if no active games
-  if (activeGames.length === 0) {
-    await playerManager.removeUserActiveGame(userId);
-    await playerManager.setUserStatus(userId, 'idle');
   }
 }

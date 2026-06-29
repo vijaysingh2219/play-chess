@@ -826,21 +826,6 @@ class GameService {
   }
 
   /**
-   * Offer draw
-   */
-  async offerDraw(gameId: string, userId: string): Promise<void> {
-    const gameState = await this.loadGame(gameId);
-
-    if (!gameState) {
-      throw new Error('Game not found');
-    }
-
-    if (userId !== gameState.whitePlayerId && userId !== gameState.blackPlayerId) {
-      throw new Error('Not a player in this game');
-    }
-  }
-
-  /**
    * Accept draw
    */
   async acceptDraw(gameId: string): Promise<{

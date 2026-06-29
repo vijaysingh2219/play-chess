@@ -122,13 +122,11 @@ async function loadGameOrThrow(gameId: string): Promise<GameState> {
   return gameState;
 }
 
-/** Release both players from the finished game (clears active game + status). */
+/** Release both players from the finished game (clears their active game). */
 async function clearPlayersFromGame(whitePlayerId: string, blackPlayerId: string): Promise<void> {
   await Promise.all([
     playerManager.removeUserActiveGame(whitePlayerId),
     playerManager.removeUserActiveGame(blackPlayerId),
-    playerManager.setUserStatus(whitePlayerId, 'idle'),
-    playerManager.setUserStatus(blackPlayerId, 'idle'),
   ]);
 }
 
@@ -181,7 +179,6 @@ async function handleJoinGame(
   socket.join(roomId);
 
   await playerManager.setUserActiveGame(userId, gameId);
-  await playerManager.setUserStatus(userId, 'in-game');
 
   socket.data.log.info({ gameId }, 'joined game');
 

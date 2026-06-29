@@ -47,9 +47,9 @@ export function setupMatchmakingHandlers(io: TypedServer): void {
       }),
     );
 
-    // Leave the queue (and reset status) when the socket drops.
+    // Leave the queue when the socket drops.
     socket.on(SOCKET_EVENTS.DISCONNECT, async () => {
-      await leaveQueueAndResetStatus(socket.data.userId);
+      await matchmakingService.removeFromQueue(socket.data.userId);
     });
   });
 }
@@ -66,7 +66,6 @@ async function handleFindMatch(
 
   socket.data.log.info({ timeControl }, 'looking for game');
 
-  await playerManager.setUserStatus(userId, 'matchmaking');
   await matchmakingService.addToQueue(socket, timeControl, ratingRange);
 
   // The centralized loop performs the actual matching; send an initial status.
@@ -82,20 +81,7 @@ async function handleCancelMatchmaking(socket: AuthenticatedSocket): Promise<voi
 
   if (removed) {
     socket.data.log.info('matchmaking cancelled');
-    await resetStatusIfIdle(userId);
     socket.emit(SOCKET_EVENTS.MATCHMAKING_CANCELLED);
-  }
-}
-
-async function leaveQueueAndResetStatus(userId: string): Promise<void> {
-  await matchmakingService.removeFromQueue(userId);
-  await resetStatusIfIdle(userId);
-}
-
-async function resetStatusIfIdle(userId: string): Promise<void> {
-  const activeGame = await playerManager.getUserActiveGame(userId);
-  if (!activeGame) {
-    await playerManager.setUserStatus(userId, 'idle');
   }
 }
 
@@ -167,9 +153,7 @@ async function createAndAnnounceMatch(
   const initialTime = initialMinutes * 60;
 
   await Promise.all([
-    playerManager.setUserStatus(player.userId, 'in-game'),
     playerManager.setUserActiveGame(player.userId, gameData.gameId),
-    playerManager.setUserStatus(opponent.userId, 'in-game'),
     playerManager.setUserActiveGame(opponent.userId, gameData.gameId),
   ]);
 
