@@ -58,16 +58,9 @@ export async function GET(request: Request) {
           username: true,
           rating: true,
           image: true,
-          gamesAsWhite: {
-            select: {
-              winner: true,
-            },
-          },
-          gamesAsBlack: {
-            select: {
-              winner: true,
-            },
-          },
+          wins: true,
+          draws: true,
+          losses: true,
         },
       }),
       prisma.user.count(),

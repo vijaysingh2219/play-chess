@@ -747,15 +747,29 @@ class GameService {
       },
     });
 
-    // Update player ratings
+    // Win/draw/loss deltas for the W/D/L counters used by the leaderboard
+    const whiteResult =
+      winner === 'DRAW'
+        ? { draws: { increment: 1 } }
+        : winner === 'WHITE'
+          ? { wins: { increment: 1 } }
+          : { losses: { increment: 1 } };
+    const blackResult =
+      winner === 'DRAW'
+        ? { draws: { increment: 1 } }
+        : winner === 'BLACK'
+          ? { wins: { increment: 1 } }
+          : { losses: { increment: 1 } };
+
+    // Update player ratings and result counters
     await Promise.all([
       prisma.user.update({
         where: { id: gameState.whitePlayerId },
-        data: { rating: eloChanges.whiteNewRating },
+        data: { rating: eloChanges.whiteNewRating, ...whiteResult },
       }),
       prisma.user.update({
         where: { id: gameState.blackPlayerId },
-        data: { rating: eloChanges.blackNewRating },
+        data: { rating: eloChanges.blackNewRating, ...blackResult },
       }),
     ]);
 

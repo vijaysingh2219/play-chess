@@ -31,20 +31,7 @@ export default function LeaderboardUsers() {
   const players = data?.users ?? [];
 
   const getStats = (player: (typeof players)[number]) => {
-    let wins = 0,
-      draws = 0,
-      losses = 0;
-
-    [
-      ...player.gamesAsWhite.map((g) => ({ ...g, asWhite: true })),
-      ...player.gamesAsBlack.map((g) => ({ ...g, asWhite: false })),
-    ].forEach(({ winner, asWhite }) => {
-      if (winner === 'DRAW') return draws++;
-      const isWin = (asWhite && winner === 'WHITE') || (!asWhite && winner === 'BLACK');
-      if (isWin) wins++;
-      else losses++;
-    });
-
+    const { wins, draws, losses } = player;
     const total = wins + draws + losses;
     const pct = (count: number) => (total ? ((count / total) * 100).toFixed(1) : '0.0');
     return {

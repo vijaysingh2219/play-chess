@@ -1,15 +1,11 @@
 import { queryKeys } from '@/lib/query';
 import { useQuery } from '@tanstack/react-query';
-import { Game, User } from '@workspace/db';
+import { User } from '@workspace/db';
 
-type IUser = Pick<User, 'id' | 'name' | 'username' | 'rating' | 'image'>;
-
-type IGame = Pick<Game, 'winner'>;
-
-interface IPlayer extends IUser {
-  gamesAsWhite: IGame[];
-  gamesAsBlack: IGame[];
-}
+type IPlayer = Pick<
+  User,
+  'id' | 'name' | 'username' | 'rating' | 'image' | 'wins' | 'draws' | 'losses'
+>;
 
 type TLeaderboardResponse = {
   users: IPlayer[];

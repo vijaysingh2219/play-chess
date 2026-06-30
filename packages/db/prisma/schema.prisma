@@ -27,6 +27,9 @@ model User {
   username         String      @unique
   stripeCustomerId String?     @unique
   rating           Int         @default(1200)
+  wins             Int         @default(0)
+  draws            Int         @default(0)
+  losses           Int         @default(0)
   lastSeenAt       DateTime?   @map("last_seen_at")
   sessions         Session[]
   accounts         Account[]
@@ -44,6 +47,7 @@ model User {
 
   @@unique([email])
   @@index([stripeCustomerId])
+  @@index([rating])
   @@map("user")
 }
 
