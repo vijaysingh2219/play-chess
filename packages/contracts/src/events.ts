@@ -266,8 +266,8 @@ export interface FriendPresenceUpdatePayload {
 }
 
 export interface PongResponsePayload {
+  /** Echo of the client's ping timestamp; the client computes RTT on its own clock. */
   timestamp: number;
-  latency: number; // in milliseconds
 }
 
 // ========================================
@@ -409,6 +409,10 @@ export interface ActiveGameCache {
   blackTimeLeft: number;
   currentTurn: Color;
   lastMoveAt: number;
+  /** Static per game; cached so the move path needs no DB read. */
+  incrementTime: number;
+  /** Number of moves played so far; incremented on each cached move. */
+  moveCount: number;
   whiteSocketId?: string;
   blackSocketId?: string;
 }

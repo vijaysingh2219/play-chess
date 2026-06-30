@@ -305,7 +305,14 @@ class GameService {
     promotion?: 'q' | 'r' | 'b' | 'n',
   ): Promise<{
     moveData: MoveData;
-    gameState: GameState;
+    gameState: {
+      whitePlayerId: string;
+      blackPlayerId: string;
+      currentFen: string;
+      currentTurn: Color;
+      whiteTimeLeft: number;
+      blackTimeLeft: number;
+    };
     gameEndInfo?: {
       winner: Winner;
       reason: GameTerminationReason;
@@ -317,93 +324,72 @@ class GameService {
       };
     };
   }> {
-    // Check if game is waiting for ready
-    const readyState = await this.getReadyState(gameId);
-    if (readyState && (!readyState.whiteReady || !readyState.blackReady)) {
-      throw new Error('Waiting for both players to be ready');
-    }
+    // Acquire lock + load cache in one pipeline round-trip.
+    const initResults = await redis
+      .pipeline()
+      .set(`${this.GAME_LOCK_PREFIX}${gameId}`, '1', 'EX', this.LOCK_TTL, 'NX')
+      .get(`${this.ACTIVE_GAME_PREFIX}${gameId}`)
+      .get(`${this.READY_STATE_PREFIX}${gameId}`)
+      .exec();
 
-    // Acquire lock to prevent race conditions
-    const lock = await this.acquireLock(gameId);
-    if (!lock) {
+    if (initResults?.[0]?.[1] !== 'OK') {
       throw new Error('Game is locked by another operation');
     }
 
+    const cacheRaw = initResults?.[1]?.[1] as string | null | undefined;
+    const readyRaw = initResults?.[2]?.[1] as string | null | undefined;
+    const cache: ActiveGameCache | null = cacheRaw ? JSON.parse(cacheRaw) : null;
+    const readyState: PlayerReadyState | null = readyRaw ? JSON.parse(readyRaw) : null;
+
+    let lockReleased = false;
     try {
-      const gameState = await this.loadGame(gameId, false);
-      if (!gameState) {
+      if (readyState && (!readyState.whiteReady || !readyState.blackReady)) {
+        throw new Error('Waiting for both players to be ready');
+      }
+      if (!cache) {
         throw new Error('Game not found');
       }
-
-      if (gameState.status !== 'ONGOING') {
+      if (cache.status !== 'ONGOING') {
         throw new Error('Game is not in progress');
       }
 
       // Check if it's the player's turn
-      const isWhiteTurn = gameState.currentTurn === 'w';
-      const isPlayersTurn = isWhiteTurn
-        ? userId === gameState.whitePlayerId
-        : userId === gameState.blackPlayerId;
-
+      const isWhite = cache.currentTurn === 'w';
+      const isPlayersTurn = isWhite
+        ? userId === cache.whitePlayerId
+        : userId === cache.blackPlayerId;
       if (!isPlayersTurn) {
         throw new Error('Not your turn');
       }
 
-      // Create chess instance with current position
-      const chess = new Chess(gameState.currentFen);
-
-      // Validate and make move
-      const move = chess.move({
-        from,
-        to,
-        promotion,
-      });
-
+      // Validate and make the move
+      const chess = new Chess(cache.currentFen);
+      const move = chess.move({ from, to, promotion });
       if (!move) {
         throw new Error('Invalid move');
       }
 
-      // Get time spent on this move
-      const cache = await this.getGameCache(gameId);
-      if (!cache) throw new Error('Game not cached');
-
+      // Time accounting (lag-compensated), with increment after the first move
       const now = Date.now();
-      let turnStartTime: number;
+      const turnStartTime =
+        typeof cache.lastMoveAt === 'string'
+          ? new Date(cache.lastMoveAt).getTime()
+          : cache.lastMoveAt;
+      const actualTimeSpent = Math.max(0, now - turnStartTime - this.LAG_GRACE_PERIOD);
 
-      if (cache && cache.lastMoveAt) {
-        turnStartTime =
-          typeof cache.lastMoveAt === 'string'
-            ? new Date(cache.lastMoveAt).getTime()
-            : cache.lastMoveAt;
-      } else if (gameState.lastMoveAt) {
-        turnStartTime = gameState.lastMoveAt;
-      } else {
-        turnStartTime = cache.lastMoveAt;
-      }
-
-      const timeSpent = now - turnStartTime;
-
-      // Apply lag compensation
-      const actualTimeSpent = Math.max(0, timeSpent - this.LAG_GRACE_PERIOD);
-
-      // Update time left for current player
-      const isWhite = gameState.currentTurn === 'w';
-      const timeLeft = isWhite ? gameState.whiteTimeLeft : gameState.blackTimeLeft;
-
-      // Subtract time spent and add increment (if not first move)
-      const incrementBonus = gameState.moves.length > 0 ? gameState.incrementTime * 1000 : 0;
+      const timeLeft = isWhite ? cache.whiteTimeLeft : cache.blackTimeLeft;
+      const incrementBonus = cache.moveCount > 0 ? cache.incrementTime * 1000 : 0;
       const newTimeLeft = Math.max(0, timeLeft - actualTimeSpent + incrementBonus);
 
-      if (isWhite) {
-        gameState.whiteTimeLeft = newTimeLeft;
-      } else {
-        gameState.blackTimeLeft = newTimeLeft;
-      }
+      const whiteTimeLeft = isWhite ? newTimeLeft : cache.whiteTimeLeft;
+      const blackTimeLeft = isWhite ? cache.blackTimeLeft : newTimeLeft;
 
-      // Create move data
+      const fenAfter = chess.fen();
+      const nextTurn = chess.turn();
+
       const moveData: MoveData = {
-        moveNumber: gameState.moves.length + 1,
-        color: gameState.currentTurn,
+        moveNumber: cache.moveCount + 1,
+        color: cache.currentTurn,
         from: move.from,
         to: move.to,
         piece: move.piece,
@@ -411,64 +397,71 @@ class GameService {
         promotion: move.promotion ?? null,
         san: move.san,
         lan: move.lan,
-        fenBefore: gameState.currentFen,
-        fenAfter: chess.fen(),
+        fenBefore: cache.currentFen,
+        fenAfter,
         createdAt: new Date(),
         timeSpent: actualTimeSpent,
         timeLeft: newTimeLeft,
       };
 
-      // Update game state
-      gameState.currentFen = chess.fen();
-      gameState.currentTurn = chess.turn();
-      gameState.moves.push(moveData);
-      gameState.lastMoveAt = now;
-
-      // Update cache
-      await this.updateGameCache(gameId, {
-        currentFen: chess.fen(),
-        currentTurn: chess.turn(),
-        whiteTimeLeft: gameState.whiteTimeLeft,
-        blackTimeLeft: gameState.blackTimeLeft,
+      const newCache: ActiveGameCache = {
+        ...cache,
+        currentFen: fenAfter,
+        currentTurn: nextTurn,
+        whiteTimeLeft,
+        blackTimeLeft,
         lastMoveAt: now,
-      });
+        moveCount: cache.moveCount + 1,
+      };
 
-      // Save move to database (async)
+      // Persist to the database asynchronously — off the response path.
       this.saveMoveToDatabase(gameId, moveData).catch((error) => {
         log.error({ err: error, gameId }, 'failed to save move to database');
       });
+      this.updateGameTimes(gameId, whiteTimeLeft, blackTimeLeft).catch((error) => {
+        log.error({ err: error, gameId }, 'failed to update game times in database');
+      });
 
-      // Update times in database (async)
-      this.updateGameTimes(gameId, gameState.whiteTimeLeft, gameState.blackTimeLeft).catch(
-        (error) => {
-          log.error({ err: error, gameId }, 'failed to update game times in database');
-        },
-      );
-
-      // Check for game end conditions
+      // Game-end check is pure CPU unless the game actually ends.
       const gameEndInfo = await this.checkGameEndConditions(gameId, chess);
 
-      // Only manage timeouts if game is still ongoing
+      // Timeout (de)scheduling is housekeeping — fire-and-forget; processTimeoutJob re-validates under its own lock.
       if (!gameEndInfo) {
-        await this.cancelTimeoutJob(gameId, userId);
-        const opponentId = isWhite ? gameState.blackPlayerId : gameState.whitePlayerId;
-        const opponentTimeLeft = isWhite ? gameState.blackTimeLeft : gameState.whiteTimeLeft;
-        await this.scheduleTimeoutJob(gameId, opponentId, chess.turn(), opponentTimeLeft);
+        const opponentId = isWhite ? cache.blackPlayerId : cache.whitePlayerId;
+        const opponentTimeLeft = isWhite ? blackTimeLeft : whiteTimeLeft;
+        this.cancelTimeoutJob(gameId, userId)
+          .then(() => this.scheduleTimeoutJob(gameId, opponentId, nextTurn, opponentTimeLeft))
+          .catch((error) => log.error({ err: error, gameId }, 'failed to manage timeout job'));
       } else {
-        await this.cancelTimeoutJob(gameId, userId);
+        this.cancelTimeoutJob(gameId, userId).catch((error) =>
+          log.error({ err: error, gameId }, 'failed to cancel timeout job'),
+        );
       }
+
+      // Write cache and release lock in one pipeline round-trip.
+      await redis
+        .pipeline()
+        .set(`${this.ACTIVE_GAME_PREFIX}${gameId}`, JSON.stringify(newCache), 'EX', 7200)
+        .del(`${this.GAME_LOCK_PREFIX}${gameId}`)
+        .exec();
+      lockReleased = true;
 
       return {
         moveData,
         gameState: {
-          ...gameState,
-          whiteTimeLeft: gameState.whiteTimeLeft,
-          blackTimeLeft: gameState.blackTimeLeft,
+          whitePlayerId: cache.whitePlayerId,
+          blackPlayerId: cache.blackPlayerId,
+          currentFen: fenAfter,
+          currentTurn: nextTurn,
+          whiteTimeLeft,
+          blackTimeLeft,
         },
         gameEndInfo: gameEndInfo ?? undefined,
       };
     } finally {
-      await this.releaseLock(gameId);
+      if (!lockReleased) {
+        await this.releaseLock(gameId);
+      }
     }
   }
 
@@ -894,6 +887,7 @@ class GameService {
     currentFen?: string;
     whiteTimeLeft: number;
     blackTimeLeft: number;
+    incrementTime: number;
     moves?: { san: string; createdAt?: Date }[];
     startedAt: Date;
   }): Promise<void> {
@@ -928,6 +922,8 @@ class GameService {
       blackTimeLeft: game.blackTimeLeft,
       currentTurn: chess.turn() as Color,
       lastMoveAt,
+      incrementTime: game.incrementTime,
+      moveCount: game.moves?.length ?? 0,
     };
 
     await redis.set(key, JSON.stringify(cache), 'EX', 7200); // 2 hours
@@ -940,6 +936,12 @@ class GameService {
     const key = `${this.ACTIVE_GAME_PREFIX}${gameId}`;
     const data = await redis.get(key);
     return data ? JSON.parse(data) : null;
+  }
+
+  /** Overwrite the game cache with a fully-formed entry (no read-modify-write). */
+  private async setGameCache(gameId: string, cache: ActiveGameCache): Promise<void> {
+    const key = `${this.ACTIVE_GAME_PREFIX}${gameId}`;
+    await redis.set(key, JSON.stringify(cache), 'EX', 7200);
   }
 
   /**

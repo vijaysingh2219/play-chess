@@ -142,9 +142,9 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
       onError?.(error);
     });
 
-    // Ping response (for latency measurement)
+    // RTT on this client's clock (payload.timestamp echoes our send time).
     socket.on(SOCKET_EVENTS.PONG_RESPONSE, (payload) => {
-      setLatency(payload.latency);
+      setLatency(Date.now() - payload.timestamp);
     });
 
     // Handle active game found event

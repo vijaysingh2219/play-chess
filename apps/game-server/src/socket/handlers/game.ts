@@ -244,6 +244,7 @@ async function handleMakeMove(
   socket: AuthenticatedSocket,
   payload: MakeMovePayload,
 ): Promise<void> {
+  const startedAt = performance.now();
   const { gameId, from, to, promotion } = payload;
   const userId = socket.data.userId;
 
@@ -279,7 +280,9 @@ async function handleMakeMove(
   const roomId = getGameRoomId(gameId);
   socket.to(roomId).emit(SOCKET_EVENTS.OPPONENT_MOVED, moveResponse);
 
-  socket.data.log.info({ gameId, san: moveData.san }, 'move made');
+  // Server-side processing latency (excludes network RTT and the rate-limit check).
+  const latencyMs = Math.round((performance.now() - startedAt) * 100) / 100;
+  socket.data.log.info({ gameId, san: moveData.san, latencyMs }, 'move made');
 
   // If the game ended due to checkmate/stalemate/draw, emit GAME_ENDED
   if (gameEndInfo) {

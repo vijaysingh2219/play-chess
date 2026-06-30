@@ -139,12 +139,9 @@ function setupPingHandler(socket: AuthenticatedSocket): void {
   socket.on(
     SOCKET_EVENTS.PING_CHECK,
     createHandler(socket, PingCheckSchema, async (payload) => {
-      const now = Date.now();
-      const latency = now - payload.timestamp;
-
+      // Echo the timestamp; the client computes RTT on its own clock.
       socket.emit(SOCKET_EVENTS.PONG_RESPONSE, {
-        timestamp: now,
-        latency,
+        timestamp: payload.timestamp,
       });
 
       // Update last ping time
