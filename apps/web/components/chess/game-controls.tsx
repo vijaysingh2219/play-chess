@@ -31,9 +31,7 @@ export function GameControls({
 
   return (
     <div className="rounded-xl border p-4">
-      <h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wide">
-        Game Controls
-      </h2>
+      <h3 className="mb-3 text-sm font-medium">Game Controls</h3>
       {gameState?.status === 'ONGOING' && (
         <div className="space-y-3">
           {drawOffered ? (

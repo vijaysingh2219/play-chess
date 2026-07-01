@@ -2,7 +2,7 @@
 
 import { PlayerInfo } from '@/components/game/player-info';
 import { DisplayUser } from '@/types';
-import { GameState } from '@workspace/contracts';
+import { GameState, MoveData } from '@workspace/contracts';
 import { Button } from '@workspace/ui/components/button';
 import {
   Tooltip,
@@ -102,6 +102,7 @@ export interface PlayerPosition {
   color: 'w' | 'b';
   gameState?: GameState;
   showCapturedPieces?: boolean;
+  moves?: MoveData[];
 }
 
 export interface GameLayoutProps {
@@ -277,12 +278,15 @@ export const GameLayout: React.FC<GameLayoutProps> = ({
             </div>
           </div>
 
-          {/* Side panel - controls and move history */}
+          {/* Side panel - controls and move history. The group marker + data-split
+              lets panel content opt into filling the height when split (see the
+              group-data-[split=true]/side-panel variants used by consumers). */}
           <div
             ref={panelRef}
+            data-split={split ? 'true' : 'false'}
             className={cn(
-              'mx-auto w-full max-w-156.25 space-y-4',
-              split && 'mx-0 min-h-0 w-96 max-w-none shrink-0 overflow-y-auto',
+              'group/side-panel mx-auto w-full max-w-156.25 space-y-4',
+              split && 'mx-0 flex min-h-0 w-96 max-w-none shrink-0 flex-col overflow-y-auto',
             )}
           >
             {sideControls}

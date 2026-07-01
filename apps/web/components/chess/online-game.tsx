@@ -20,18 +20,19 @@ import {
   DialogTitle,
 } from '@workspace/ui/components/dialog';
 import { Kbd } from '@workspace/ui/components/kbd';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
 import { useIsMobile } from '@workspace/ui/hooks/use-mobile';
 import { cn } from '@workspace/ui/lib/utils';
 import { Chess } from 'chess.js';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import Image from 'next/image';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Chessboard as ReactChessboard } from 'react-chessboard';
 import { GameControls } from './game-controls';
+import { GameInfo } from './game-info';
 import { GameOverDialog } from './game-over';
 import { MoveHistory } from './move-history';
+import { PlaybackControls } from './playback-controls';
 
 interface GameResult {
   winner: Winner;
@@ -260,129 +261,74 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
 
   // Render side controls with playback navigation
   const sideControls = (
-    <div className="space-y-4">
-      {/* Playback controls */}
-      {totalMoves > 0 && (
-        <div className="space-y-2 rounded-xl border p-4">
-          <h3 className="mb-3 text-sm font-medium">Move Navigation</h3>
-          <div className="grid grid-cols-4 gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goToFirstMove}
-                  disabled={currentViewIndex <= -1}
-                  className="h-9"
-                  aria-label="Go to start"
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>First Move (↑)</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goToPrevMove}
-                  disabled={currentViewIndex <= -1}
-                  className="h-9"
-                  aria-label="Previous move"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Previous Move (←)</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goToNextMove}
-                  disabled={currentViewIndex >= totalMoves - 1}
-                  className="h-9"
-                  aria-label="Next move"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Next Move (→)</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goToLatestMove}
-                  disabled={!isViewingHistory}
-                  className="h-9"
-                  aria-label="Go to latest"
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Latest Move (↓)</TooltipContent>
-            </Tooltip>
-          </div>
-
-          {/* Move counter */}
-          <div className="text-muted-foreground mt-3 text-center text-sm">
-            {currentViewIndex === -1 ? (
-              'Starting Position'
-            ) : (
-              <>
-                Move {currentViewIndex + 1} of {totalMoves}
-                {isViewingHistory && (
-                  <span className="ml-2 text-amber-600 dark:text-amber-400">(History)</span>
-                )}
-              </>
-            )}
-          </div>
-
-          {isViewingHistory && (
-            <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-center">
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                Viewing move history • Press ↓ to return to live position
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Game controls */}
-      <GameControls
-        gameState={gameState}
-        drawOffered={drawOffered}
-        resign={resign}
-        offerDraw={offerDraw}
-        acceptDraw={acceptDraw}
-        declineDraw={declineDraw}
-      />
-    </div>
-  );
-
-  // Render move history
-  const additionalContent = (
-    <div className="rounded-xl border">
-      <div className="border-b p-3">
-        <h3 className="text-sm font-medium">Move History</h3>
-      </div>
-      <div
-        className="max-h-100 overflow-y-auto"
-        role="log"
-        aria-label="Chess move history"
-        aria-live="polite"
+    <div className="flex flex-col gap-4 group-data-[split=true]/side-panel:min-h-0 group-data-[split=true]/side-panel:flex-1">
+      {/* Tabbed content area (fills available height when the panel is split) */}
+      <Tabs
+        defaultValue="moves"
+        className="flex flex-col group-data-[split=true]/side-panel:min-h-0 group-data-[split=true]/side-panel:flex-1"
       >
-        <MoveHistory
-          moves={moveList}
-          onMoveClick={(index) => goToMove(index)}
-          activeIndex={currentViewIndex}
+        <TabsList className="w-full">
+          <TabsTrigger value="moves">Moves</TabsTrigger>
+          <TabsTrigger value="info">Info</TabsTrigger>
+        </TabsList>
+
+        <TabsContent
+          value="moves"
+          className="rounded-xl border group-data-[split=true]/side-panel:flex group-data-[split=true]/side-panel:min-h-0 group-data-[split=true]/side-panel:flex-col"
+        >
+          <div
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+            role="log"
+            aria-label="Chess move history"
+            aria-live="polite"
+          >
+            <MoveHistory
+              moves={moveList}
+              onMoveClick={(index) => goToMove(index)}
+              activeIndex={currentViewIndex}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent
+          value="info"
+          className="rounded-xl border p-4 group-data-[split=true]/side-panel:min-h-0 group-data-[split=true]/side-panel:overflow-y-auto"
+        >
+          <GameInfo
+            gameState={gameState}
+            result={
+              gameResult
+                ? {
+                    winner: gameResult.winner,
+                    reason: gameResult.reason,
+                    whiteChange: gameResult.eloChanges.white,
+                    blackChange: gameResult.eloChanges.black,
+                  }
+                : null
+            }
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Pinned controls */}
+      <div className="shrink-0 space-y-4">
+        <PlaybackControls
+          currentViewIndex={currentViewIndex}
+          totalMoves={totalMoves}
+          isViewingHistory={isViewingHistory}
+          onFirstMove={goToFirstMove}
+          onPrevMove={goToPrevMove}
+          onNextMove={goToNextMove}
+          onLatestMove={goToLatestMove}
+        />
+
+        <GameControls
+          gameState={gameState}
+          drawOffered={drawOffered}
+          resign={resign}
+          offerDraw={offerDraw}
+          acceptDraw={acceptDraw}
+          declineDraw={declineDraw}
         />
       </div>
     </div>
@@ -396,7 +342,6 @@ export const OnlineGame: React.FC<OnlineGameProps> = ({ className, gameId }) => 
         bottomPlayer={playerPositions.bottom}
         chessboard={chessboard}
         sideControls={sideControls}
-        additionalContent={additionalContent}
         onFlipBoard={() => setBoardOrientation(boardOrientation === 'white' ? 'black' : 'white')}
         boardOrientation={boardOrientation}
         latency={displayedLatency}

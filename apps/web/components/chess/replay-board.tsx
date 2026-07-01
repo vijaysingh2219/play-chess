@@ -5,18 +5,19 @@ import { GameLayout } from '@/components/chess/game-layout';
 import { MoveHistory } from '@/components/chess/move-history';
 import { useKeyboardShortcuts } from '@/contexts/keyboard-shortcuts-context';
 import { useGameById } from '@/hooks/queries/games';
+import { useAuthUser } from '@/hooks/use-auth-user';
 import { useChessKeyboardShortcuts } from '@/hooks/use-chess-keyboard-shortcuts';
 import { useReplayControls } from '@/hooks/use-replay-controls';
 import { DisplayUser } from '@/types';
 import { GameResult, Move, MoveData } from '@workspace/contracts';
 import { Game } from '@workspace/db';
-import { Badge } from '@workspace/ui/components/badge';
-import { Button } from '@workspace/ui/components/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Pause, Play } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
+import { cn } from '@workspace/ui/lib/utils';
+import { formatTimeControlDisplay } from '@workspace/utils/helpers';
 import { useEffect, useMemo, useState } from 'react';
 import { Chessboard } from 'react-chessboard';
-import { ReplayCapturedPieces } from '../game/captured-pieces';
+import { formatGameEndReason } from './game-over';
+import { PlaybackControls } from './playback-controls';
 
 export interface IGame extends Game {
   moves: Move[];
@@ -41,6 +42,9 @@ export function ReplayBoard({ className, gameId }: { className?: string; gameId:
   // Fetch game data
   const { data } = useGameById(gameId);
   const moveList: MoveData[] = useMemo(() => data?.moves ?? [], [data]);
+
+  // Auth user — non-redirecting so replay is viewable without login
+  const { user: authUser } = useAuthUser();
 
   // Use replay controls hook
   const {
@@ -125,7 +129,8 @@ export function ReplayBoard({ className, gameId }: { className?: string; gameId:
       lowTime: false,
       isTurn: currentTurn === 'w',
       color: 'w' as const,
-      showCapturedPieces: false,
+      showCapturedPieces: true,
+      moves: movesUpToCurrentPosition,
     };
 
     const blackPlayer = {
@@ -141,7 +146,8 @@ export function ReplayBoard({ className, gameId }: { className?: string; gameId:
       lowTime: false,
       isTurn: currentTurn === 'b',
       color: 'b' as const,
-      showCapturedPieces: false,
+      showCapturedPieces: true,
+      moves: movesUpToCurrentPosition,
     };
 
     // Arrange based on board orientation
@@ -150,7 +156,7 @@ export function ReplayBoard({ className, gameId }: { className?: string; gameId:
     } else {
       return { top: whitePlayer, bottom: blackPlayer };
     }
-  }, [data, boardOrientation, getCurrentTurn, getTimeAtMove]);
+  }, [data, boardOrientation, getCurrentTurn, getTimeAtMove, movesUpToCurrentPosition]);
 
   // Render chessboard
   const chessboard = (
@@ -166,171 +172,118 @@ export function ReplayBoard({ className, gameId }: { className?: string; gameId:
     </div>
   );
 
-  // Render playback controls
-  const playbackControls = (
-    <div className="space-y-4">
-      {/* Playback buttons */}
-      <div className="rounded-xl border p-4">
-        <h3 className="mb-3 text-sm font-medium">Playback Controls</h3>
-        <div className="grid grid-cols-5 gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={reset}
-                disabled={currentMoveIndex <= -1}
-                className="h-9"
-                aria-label="Go to start"
-              >
-                <ChevronsLeft className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Start of Game (↑ or Home)</TooltipContent>
-          </Tooltip>
+  const sideControls = (
+    <div className="flex flex-col gap-4 group-data-[split=true]/side-panel:min-h-0 group-data-[split=true]/side-panel:flex-1">
+      <Tabs
+        defaultValue="moves"
+        className="flex flex-col group-data-[split=true]/side-panel:min-h-0 group-data-[split=true]/side-panel:flex-1"
+      >
+        <TabsList className="w-full">
+          <TabsTrigger value="moves">Moves</TabsTrigger>
+          <TabsTrigger value="info">Info</TabsTrigger>
+        </TabsList>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={prev}
-                disabled={currentMoveIndex <= -1}
-                className="h-9"
-                aria-label="Previous move"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Previous Move (←)</TooltipContent>
-          </Tooltip>
+        <TabsContent
+          value="moves"
+          className="rounded-xl border group-data-[split=true]/side-panel:flex group-data-[split=true]/side-panel:min-h-0 group-data-[split=true]/side-panel:flex-col"
+        >
+          <div
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+            role="log"
+            aria-label="Chess move history"
+          >
+            <MoveHistory
+              moves={moveList}
+              onMoveClick={(index) => goToMove(index)}
+              activeIndex={currentMoveIndex}
+            />
+          </div>
+        </TabsContent>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={togglePlay}
-                disabled={currentMoveIndex >= moveList.length - 1}
-                className="h-9"
-                aria-label={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{isPlaying ? 'Pause' : 'Play'} (Space)</TooltipContent>
-          </Tooltip>
+        <TabsContent
+          value="info"
+          className="rounded-xl border p-4 group-data-[split=true]/side-panel:min-h-0 group-data-[split=true]/side-panel:overflow-y-auto"
+        >
+          {data ? (
+            <div className="space-y-3 text-sm">
+              {/* Outcome banner */}
+              {data.winner && (
+                <div className="bg-muted/40 rounded-lg border p-2.5 text-center font-medium">
+                  {data.winner === 'DRAW'
+                    ? `Draw${data.reason ? ` by ${formatGameEndReason(data.reason).toLowerCase()}` : ''}`
+                    : `${data.winner === 'WHITE' ? data.whitePlayer.username : data.blackPlayer.username} won${data.reason ? ` by ${formatGameEndReason(data.reason).toLowerCase()}` : ''}`}
+                </div>
+              )}
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={next}
-                disabled={currentMoveIndex >= moveList.length - 1}
-                className="h-9"
-                aria-label="Next move"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Next Move (→)</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={end}
-                disabled={currentMoveIndex >= moveList.length - 1}
-                className="h-9"
-                aria-label="Go to end"
-              >
-                <ChevronsRight className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>End of Game (↓ or End)</TooltipContent>
-          </Tooltip>
-        </div>
-
-        {/* Move counter */}
-        <div className="text-muted-foreground mt-3 text-center text-sm">
-          {currentMoveIndex === -1 ? (
-            'Starting Position'
-          ) : (
-            <>
-              Move {currentMoveIndex + 1} of {moveList.length}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Game info */}
-      {data && (
-        <div className="rounded-xl border p-4">
-          <h3 className="mb-3 text-sm font-medium">Game Info</h3>
-          <div className="space-y-2 text-sm">
-            {data.timeControl && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Time Control:</span>
-                <Badge variant="outline" className="font-medium">
-                  {data.timeControl}
-                </Badge>
-              </div>
-            )}
-            {data.result && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Result:</span>
-                <Badge
-                  variant={data.winner === 'DRAW' ? 'secondary' : 'default'}
-                  className="font-medium"
-                >
-                  {data.winner === 'WHITE' ? '1-0' : data.winner === 'BLACK' ? '0-1' : '½-½'}
-                </Badge>
-              </div>
-            )}
-            {data.winner && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Winner:</span>
-                <span className="font-medium">
-                  {data.winner === 'WHITE'
-                    ? data.whitePlayer.username
-                    : data.winner === 'BLACK'
-                      ? data.blackPlayer.username
-                      : 'Draw'}
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-muted-foreground shrink-0">Started</span>
+                <span className="text-right font-medium">
+                  {new Date(data.createdAt).toLocaleString('en-US', {
+                    dateStyle: 'medium',
+                    timeStyle: 'long',
+                  })}
                 </span>
               </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Moves:</span>
-              <span className="font-medium">{moveList.length}</span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Time</span>
+                <span className="font-medium">{formatTimeControlDisplay(data.timeControl)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Variant</span>
+                {/* No variant/rated field on Game yet — all games are standard & rated. */}
+                <span className="font-medium">Standard (Rated)</span>
+              </div>
+
+              {/* Rating change — only shown to participants */}
+              {(() => {
+                const viewerIsWhite = authUser?.id === data.whitePlayer.id;
+                const viewerIsBlack = authUser?.id === data.blackPlayer.id;
+                const change = viewerIsWhite
+                  ? data.eloChangeWhite
+                  : viewerIsBlack
+                    ? data.eloChangeBlack
+                    : null;
+                if (change == null) return null;
+                return (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Rating change</span>
+                    <span
+                      className={cn(
+                        'font-semibold tabular-nums',
+                        change > 0
+                          ? 'text-green-600 dark:text-green-500'
+                          : change < 0
+                            ? 'text-red-600 dark:text-red-500'
+                            : 'text-muted-foreground',
+                      )}
+                    >
+                      {change > 0 ? '+' : ''}
+                      {change}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
-          </div>
-        </div>
-      )}
+          ) : (
+            <p className="text-muted-foreground text-sm">Loading…</p>
+          )}
+        </TabsContent>
+      </Tabs>
 
-      {/* ✅ Captured pieces - Updates based on current replay position */}
-      {moveList.length > 0 && (
-        <div className="rounded-xl border p-4">
-          <h3 className="mb-3 text-sm font-medium">Material</h3>
-          <ReplayCapturedPieces moves={movesUpToCurrentPosition} />
-        </div>
-      )}
-    </div>
-  );
-
-  // Render move history
-  const additionalContent = (
-    <div className="rounded-xl border">
-      <div className="border-b p-3">
-        <h3 className="text-sm font-medium">Move History</h3>
-      </div>
-      <div className="max-h-100 overflow-y-auto" role="log" aria-label="Chess move history">
-        <MoveHistory
-          moves={moveList}
-          onMoveClick={(index) => goToMove(index)}
-          activeIndex={currentMoveIndex}
+      <div className="shrink-0">
+        <PlaybackControls
+          currentViewIndex={currentMoveIndex}
+          totalMoves={moveList.length}
+          isViewingHistory={false}
+          onFirstMove={reset}
+          onPrevMove={prev}
+          onNextMove={next}
+          onLatestMove={end}
+          title="Playback Controls"
+          firstMoveLabel="Start of Game"
+          lastMoveLabel="End of Game"
+          autoPlay={{ isPlaying, onToggle: togglePlay }}
+          showHistoryBanner={false}
         />
       </div>
     </div>
@@ -342,8 +295,7 @@ export function ReplayBoard({ className, gameId }: { className?: string; gameId:
       topPlayer={playerPositions.top}
       bottomPlayer={playerPositions.bottom}
       chessboard={chessboard}
-      sideControls={playbackControls}
-      additionalContent={additionalContent}
+      sideControls={sideControls}
       onFlipBoard={() => setBoardOrientation(boardOrientation === 'white' ? 'black' : 'white')}
       boardOrientation={boardOrientation}
     />

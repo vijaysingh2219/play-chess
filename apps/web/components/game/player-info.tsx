@@ -1,12 +1,12 @@
 import { UserProfileDialog } from '@/components/profile/user-profile-popover';
 import { useRequiredAuthUser } from '@/hooks/use-auth-user';
 import { DisplayUser } from '@/types';
-import type { GameState } from '@workspace/contracts';
+import type { GameState, MoveData } from '@workspace/contracts';
 import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
 import { cn } from '@workspace/ui/lib/utils';
 import { formatTime } from '@workspace/utils/helpers';
 import { Clock } from 'lucide-react';
-import { InlineCapturedPieces } from './captured-pieces';
+import { InlineCapturedPieces, InlineReplayCapturedPieces } from './captured-pieces';
 
 interface PlayerInfoProps {
   gameState?: GameState;
@@ -16,6 +16,8 @@ interface PlayerInfoProps {
   isTurn?: boolean;
   color: 'w' | 'b';
   showCapturedPieces?: boolean;
+  /** Replay moves — when provided, captured pieces are derived from these instead of the game socket. */
+  moves?: MoveData[];
   className?: string;
 }
 
@@ -27,6 +29,7 @@ export function PlayerInfo({
   isTurn,
   color,
   showCapturedPieces = false,
+  moves,
   className,
 }: PlayerInfoProps) {
   const { user: authUser } = useRequiredAuthUser();
@@ -57,9 +60,12 @@ export function PlayerInfo({
               </span>
             </UserProfileDialog>
           </p>
-          {showCapturedPieces && (
-            <InlineCapturedPieces gameId={gameState?.id || ''} color={color} />
-          )}
+          {showCapturedPieces &&
+            (moves ? (
+              <InlineReplayCapturedPieces moves={moves} color={color} />
+            ) : (
+              <InlineCapturedPieces gameId={gameState?.id || ''} color={color} />
+            ))}
         </div>
       </div>
       <div

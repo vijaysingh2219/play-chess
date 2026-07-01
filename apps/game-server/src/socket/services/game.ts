@@ -1,10 +1,10 @@
 import { ActiveGameCache, GameState, GameType, MoveData } from '@workspace/contracts';
 import { Color, GameTerminationReason, prisma, Winner } from '@workspace/db';
 import { logger } from '@workspace/logger';
+import { calculateEloChanges } from '@workspace/utils/helpers';
 import Bull from 'bull';
 import { Chess, PieceSymbol } from 'chess.js';
 import { redis } from '../lib/redis';
-import { calculateEloChanges } from './elo';
 import { gameTimeoutQueue } from './timeouts';
 
 const log = logger.child({ module: 'game' });

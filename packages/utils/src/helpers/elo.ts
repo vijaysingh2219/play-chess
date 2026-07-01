@@ -1,4 +1,4 @@
-import { Winner } from '@workspace/db';
+import type { Winner } from '@workspace/chess';
 
 /**
  * K-factor determines how much ratings change per game

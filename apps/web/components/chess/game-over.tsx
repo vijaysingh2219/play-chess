@@ -227,7 +227,7 @@ function RatingChangeDisplay({ rating }: { rating: Rating }) {
 /**
  * Format game end reason for display
  */
-function formatGameEndReason(reason: GameTerminationReason): string {
+export function formatGameEndReason(reason: GameTerminationReason): string {
   const reasonMap: Record<GameTerminationReason, string> = {
     CHECKMATE: 'Checkmate',
     RESIGNATION: 'Resignation',

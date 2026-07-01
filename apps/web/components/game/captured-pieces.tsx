@@ -126,6 +126,31 @@ export function InlineCapturedPieces({ gameId, color }: { gameId: string; color:
   );
 }
 
+export function InlineReplayCapturedPieces({
+  moves,
+  color,
+}: {
+  moves: MoveData[];
+  color: 'w' | 'b';
+}) {
+  const capturedPieces = useCapturedPieces(moves);
+  const symbols = useMemo(
+    () => getCapturedPieceSymbols(capturedPieces[color], color),
+    [capturedPieces, color],
+  );
+  return (
+    <CapturedPieceRow
+      symbols={symbols}
+      size={5}
+      materialAdvantage={
+        capturedPieces.materialAdvantage.color === color
+          ? capturedPieces.materialAdvantage.value
+          : undefined
+      }
+    />
+  );
+}
+
 export function ReplayCapturedPieces({ moves }: { moves: MoveData[] }) {
   const capturedPieces = useCapturedPieces(moves);
 

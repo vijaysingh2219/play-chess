@@ -175,7 +175,7 @@ export const MoveHistory = memo<MoveHistoryProps>(
     // Empty state
     if (moves.length === 0) {
       return (
-        <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed">
+        <div className="flex h-32 flex-col items-center justify-center gap-2">
           <p className="text-muted-foreground text-sm font-medium">No moves yet</p>
           <p className="text-muted-foreground/70 text-xs">Moves will appear here as you play</p>
         </div>
@@ -183,8 +183,13 @@ export const MoveHistory = memo<MoveHistoryProps>(
     }
 
     return (
-      <div className={cn('', className)}>
-        <ScrollArea className="h-60">
+      <div
+        className={cn(
+          'group-data-[split=true]/side-panel:flex group-data-[split=true]/side-panel:min-h-0 group-data-[split=true]/side-panel:flex-1 group-data-[split=true]/side-panel:flex-col',
+          className,
+        )}
+      >
+        <ScrollArea className="h-60 group-data-[split=true]/side-panel:h-full">
           <Table>
             <TableHeader>
               <TableRow>
