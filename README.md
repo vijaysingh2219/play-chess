@@ -2,7 +2,7 @@
 
 **Play Chess** is a simple and modern way to play chess online with friends. It’s fast, real-time, and works right in your browser—no installs, no hassle.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Play Chess](docs/og-image.png)
 
 [**▶ Watch Demo**](https://www.youtube.com/watch?v=rusrUAPiNm4)
 
@@ -31,13 +31,39 @@ Support the project and unlock advanced features with a Pro membership:
 
 > Upgrade to Pro anytime from the Membership page.
 
+## Screenshots
+
+### Landing
+
+![Landing](docs/screenshots/landing.png)
+
+### Sign In
+
+![Sign In](docs/screenshots/sign-in.png)
+
+### Sign Up
+
+![Sign Up](docs/screenshots/sign-up.png)
+
+### Play Online
+
+![Play Online](docs/screenshots/play-online.png)
+
+### Leaderboard
+
+![Leaderboard](docs/screenshots/leaderboard.png)
+
+### Member Profile
+
+![Member Profile](docs/screenshots/member.png)
+
 ## Overview
 
 This is a full-stack monorepo built with [Turborepo](https://turborepo.org/), combining a Next.js frontend, Express backend, and shared packages into one cohesive development experience.
 
 ### Applications
 
-- **apps/web** — Next.js 15 app with Turbopack, authentication, and modern UI
+- **apps/web** — Next.js 16 app with Turbopack, authentication, and modern UI
 - **apps/game-server** — Express server with Socket.IO for real-time gameplay
 - **apps/email** — React Email templates with hot reload preview
 - **apps/studio** — Prisma Studio for database management
@@ -53,7 +79,9 @@ This is a full-stack monorepo built with [Turborepo](https://turborepo.org/), co
 | **@workspace/email**      | React Email templates and Resend integration        |
 | **@workspace/payments**   | Stripe integration for Pro memberships              |
 | **@workspace/utils**      | Shared utilities and TypeScript types               |
+| **@workspace/contracts**  | Shared API types and Zod schemas                    |
 | **@workspace/rate-limit** | API rate limiting utilities                         |
+| **@workspace/logger**     | Shared logging utilities                            |
 
 ### Configuration Packages
 
