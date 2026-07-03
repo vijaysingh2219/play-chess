@@ -10,18 +10,28 @@ const {
   mockSet,
   mockDel,
   mockGet,
+  mockZadd,
+  mockZrem,
+  mockZrangebyscore,
   mockGameUpdate,
   mockUserUpdate,
   mockFindUnique,
+  mockFindMany,
+  mockMoveFindMany,
   mockQueueAdd,
   mockQueueGetJob,
 } = vi.hoisted(() => ({
   mockSet: vi.fn(),
   mockDel: vi.fn(),
   mockGet: vi.fn(),
+  mockZadd: vi.fn(),
+  mockZrem: vi.fn(),
+  mockZrangebyscore: vi.fn(),
   mockGameUpdate: vi.fn(),
   mockUserUpdate: vi.fn(),
   mockFindUnique: vi.fn(),
+  mockFindMany: vi.fn(),
+  mockMoveFindMany: vi.fn(),
   mockQueueAdd: vi.fn(),
   mockQueueGetJob: vi.fn(),
 }));
@@ -31,6 +41,9 @@ vi.mock('../../socket/lib/redis', () => ({
     get: mockGet,
     set: mockSet,
     del: mockDel,
+    zadd: mockZadd,
+    zrem: mockZrem,
+    zrangebyscore: mockZrangebyscore,
     scan: vi.fn().mockResolvedValue(['0', []]),
     pipeline: vi.fn(() => ({
       set: vi.fn().mockReturnThis(),
@@ -46,8 +59,8 @@ vi.mock('../../socket/lib/redis', () => ({
 
 vi.mock('@workspace/db', () => ({
   prisma: {
-    move: { create: vi.fn().mockResolvedValue({}) },
-    game: { update: mockGameUpdate, findUnique: mockFindUnique },
+    move: { create: vi.fn().mockResolvedValue({}), findMany: mockMoveFindMany },
+    game: { update: mockGameUpdate, findUnique: mockFindUnique, findMany: mockFindMany },
     user: { update: mockUserUpdate },
   },
 }));
@@ -116,9 +129,14 @@ beforeEach(() => {
   mockGet.mockResolvedValue(null);
   mockSet.mockResolvedValue('OK');
   mockDel.mockResolvedValue(1);
+  mockZadd.mockResolvedValue(1);
+  mockZrem.mockResolvedValue(1);
+  mockZrangebyscore.mockResolvedValue([]);
   mockGameUpdate.mockResolvedValue({});
   mockUserUpdate.mockResolvedValue({});
   mockFindUnique.mockResolvedValue(null);
+  mockFindMany.mockResolvedValue([]);
+  mockMoveFindMany.mockResolvedValue([]);
   mockQueueAdd.mockResolvedValue(undefined);
   mockQueueGetJob.mockResolvedValue(null);
 });
@@ -488,5 +506,187 @@ describe('processTimeoutJob', () => {
 
     expect(loadGame).not.toHaveBeenCalled();
     expect(mockQueueAdd).toHaveBeenCalled(); // rescheduled with short delay
+  });
+});
+
+describe('timeout index bookkeeping', () => {
+  const svc = gameService as unknown as {
+    scheduleTimeoutJob: (
+      gameId: string,
+      playerId: string,
+      color: 'w' | 'b',
+      timeLeft: number,
+    ) => Promise<void>;
+    cancelTimeoutJob: (gameId: string, playerId: string) => Promise<void>;
+  };
+
+  it('scheduleTimeoutJob indexes the flag-fall time before adding the Bull job', async () => {
+    const now = 1_700_000_000_000;
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+
+    await svc.scheduleTimeoutJob('game-1', 'white', 'w', 30_000);
+
+    expect(mockZadd).toHaveBeenCalledWith('game:timeout-index', now + 30_000, 'game-1:white:w');
+    expect(mockZadd.mock.invocationCallOrder[0]).toBeLessThan(
+      mockQueueAdd.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it('cancelTimeoutJob removes both color variants from the index', async () => {
+    await svc.cancelTimeoutJob('game-1', 'white');
+
+    expect(mockZrem).toHaveBeenCalledWith('game:timeout-index', 'game-1:white:w', 'game-1:white:b');
+  });
+});
+
+describe('sweepExpiredTimeouts', () => {
+  const sweep = () =>
+    (
+      gameService as unknown as { sweepExpiredTimeouts: () => Promise<void> }
+    ).sweepExpiredTimeouts();
+
+  // processTimeoutJob is private; spy through a structural cast.
+  const spyProcessTimeoutJob = () =>
+    vi
+      .spyOn(
+        gameService as unknown as { processTimeoutJob: (job: unknown) => Promise<void> },
+        'processTimeoutJob',
+      )
+      .mockResolvedValue(undefined);
+
+  it('claims each expired entry and processes it as a timeout job', async () => {
+    mockZrangebyscore.mockResolvedValue(['game-1:white:w', '1700000000000']);
+    const processTimeoutJob = spyProcessTimeoutJob();
+
+    await sweep();
+
+    expect(mockZrangebyscore).toHaveBeenCalledWith(
+      'game:timeout-index',
+      '-inf',
+      expect.any(Number),
+      'WITHSCORES',
+    );
+    expect(mockZrem).toHaveBeenCalledWith('game:timeout-index', 'game-1:white:w');
+    expect(processTimeoutJob).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      playerId: 'white',
+      color: 'w',
+      expectedTimeoutAt: 1_700_000_000_000,
+    });
+  });
+
+  it('skips entries already claimed by another instance', async () => {
+    mockZrangebyscore.mockResolvedValue(['game-1:white:w', '1700000000000']);
+    mockZrem.mockResolvedValue(0); // someone else swept it first
+    const processTimeoutJob = spyProcessTimeoutJob();
+
+    await sweep();
+
+    expect(processTimeoutJob).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when no timeouts have expired', async () => {
+    mockZrangebyscore.mockResolvedValue([]);
+    const processTimeoutJob = spyProcessTimeoutJob();
+
+    await sweep();
+
+    expect(mockZrem).not.toHaveBeenCalled();
+    expect(processTimeoutJob).not.toHaveBeenCalled();
+  });
+
+  it('drops malformed index entries without processing them', async () => {
+    mockZrangebyscore.mockResolvedValue(['garbage', '1700000000000']);
+    const processTimeoutJob = spyProcessTimeoutJob();
+
+    await sweep();
+
+    expect(mockZrem).toHaveBeenCalledWith('game:timeout-index', 'garbage'); // still claimed/removed
+    expect(processTimeoutJob).not.toHaveBeenCalled();
+  });
+});
+
+describe('recoverActiveGames', () => {
+  const now = 1_700_000_000_000;
+
+  // Back get/set with a store so the rebuild-then-read cycle in recovery works.
+  let store: Record<string, string>;
+
+  beforeEach(() => {
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    store = {};
+    mockGet.mockImplementation(async (key: string) => store[key] ?? null);
+    mockSet.mockImplementation(async (key: string, value: string) => {
+      store[key] = value;
+      return 'OK';
+    });
+  });
+
+  it('rebuilds a lost cache from the DB and reschedules the timeout', async () => {
+    mockFindMany.mockResolvedValue([
+      dbGameRow({ startedAt: new Date(now - 10_000) }), // white on move, 10s elapsed of 60s
+    ]);
+
+    await gameService.recoverActiveGames();
+
+    expect(store['game:active:game-1']).toBeDefined(); // cache rebuilt
+    expect(mockZadd).toHaveBeenCalledWith('game:timeout-index', now + 50_000, 'game-1:white:w');
+    expect(mockQueueAdd).toHaveBeenCalled(); // Bull job rescheduled
+  });
+
+  it('skips games still waiting for both players to ready up', async () => {
+    mockFindMany.mockResolvedValue([dbGameRow()]);
+    store['game:ready:game-1'] = JSON.stringify({ whiteReady: true, blackReady: false });
+
+    await gameService.recoverActiveGames();
+
+    expect(mockZadd).not.toHaveBeenCalled();
+    expect(mockQueueAdd).not.toHaveBeenCalled();
+  });
+
+  it('hands an already-expired game to the sweep instead of ending it directly', async () => {
+    mockFindMany.mockResolvedValue([
+      dbGameRow({ startedAt: new Date(now - 120_000) }), // 120s elapsed of a 60s budget
+    ]);
+    const handleTimeout = vi.spyOn(gameService, 'handleTimeout').mockResolvedValue(undefined);
+
+    await gameService.recoverActiveGames();
+
+    // Recovery runs on every instance; ending games is the sweep's job
+    // (claim + lock). It only indexes the past flag-fall time.
+    expect(handleTimeout).not.toHaveBeenCalled();
+    expect(mockQueueAdd).not.toHaveBeenCalled();
+    expect(mockZadd).toHaveBeenCalledWith('game:timeout-index', now - 60_000, 'game-1:white:w');
+  });
+
+  it('trusts a surviving cache over the stale DB row', async () => {
+    mockFindMany.mockResolvedValue([dbGameRow()]); // DB thinks white on move
+    store['game:active:game-1'] = JSON.stringify({
+      gameId: 'game-1',
+      whitePlayerId: 'white',
+      blackPlayerId: 'black',
+      status: 'ONGOING',
+      currentFen: 'irrelevant',
+      whiteTimeLeft: 60_000,
+      blackTimeLeft: 40_000,
+      currentTurn: 'b', // cache knows black is on move
+      lastMoveAt: now - 10_000,
+      incrementTime: 0,
+      moveCount: 3,
+    });
+
+    await gameService.recoverActiveGames();
+
+    expect(mockZadd).toHaveBeenCalledWith('game:timeout-index', now + 30_000, 'game-1:black:b');
+    expect(mockMoveFindMany).not.toHaveBeenCalled(); // no move hydration when cache survived
+  });
+
+  it('does nothing when no games are ongoing', async () => {
+    mockFindMany.mockResolvedValue([]);
+
+    await gameService.recoverActiveGames();
+
+    expect(mockZadd).not.toHaveBeenCalled();
+    expect(mockQueueAdd).not.toHaveBeenCalled();
   });
 });

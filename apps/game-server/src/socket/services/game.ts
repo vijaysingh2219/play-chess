@@ -34,6 +34,8 @@ class GameService {
   private readonly ACTIVE_GAME_PREFIX = 'game:active:';
   private readonly GAME_LOCK_PREFIX = 'game:lock:';
   private readonly READY_STATE_PREFIX = 'game:ready:';
+  // Sorted set of pending timeouts: member `gameId:playerId:color`, score = expected flag-fall time
+  private readonly TIMEOUT_INDEX_KEY = 'game:timeout-index';
 
   // Lag compensation (to account for network latency)
   private readonly LAG_GRACE_PERIOD = 100;
@@ -503,6 +505,10 @@ class GameService {
 
     const expectedTimeoutAt = Date.now() + timeLeft;
 
+    // Index by flag-fall time so the fallback sweep can find this timeout
+    // even if the Bull job below is never added or gets dropped
+    await redis.zadd(this.TIMEOUT_INDEX_KEY, expectedTimeoutAt, `${gameId}:${playerId}:${color}`);
+
     await this.timeoutQueue.add(
       {
         gameId,
@@ -588,6 +594,9 @@ class GameService {
    * Cancel timeout job for a player (when they make a move)
    */
   private async cancelTimeoutJob(gameId: string, playerId: string): Promise<void> {
+    // Color isn't known here, so remove both member variants (ZREM ignores misses)
+    await redis.zrem(this.TIMEOUT_INDEX_KEY, `${gameId}:${playerId}:w`, `${gameId}:${playerId}:b`);
+
     const jobId = `timeout:${gameId}:${playerId}`;
     const job = await this.timeoutQueue.getJob(jobId);
 
@@ -604,34 +613,111 @@ class GameService {
   private startFallbackSweep(): void {
     setInterval(async () => {
       try {
-        const keys = await this.scanKeys(`${this.ACTIVE_GAME_PREFIX}*`);
-
-        for (const key of keys) {
-          const gameId = key.replace(this.ACTIVE_GAME_PREFIX, '');
-
-          // Only check games with critical time situations
-          const cache = await this.getGameCache(gameId);
-          if (!cache) continue;
-
-          const now = Date.now();
-          const lastMoveTime =
-            typeof cache.lastMoveAt === 'string'
-              ? new Date(cache.lastMoveAt).getTime()
-              : cache.lastMoveAt;
-          const elapsed = now - lastMoveTime;
-
-          if (cache.currentTurn === 'w' && elapsed >= cache.whiteTimeLeft) {
-            await this.handleTimeout(gameId, cache.whitePlayerId);
-          }
-
-          if (cache.currentTurn === 'b' && elapsed >= cache.blackTimeLeft) {
-            await this.handleTimeout(gameId, cache.blackPlayerId);
-          }
-        }
+        await this.sweepExpiredTimeouts();
       } catch (error) {
         log.error({ err: error }, 'fallback sweep error');
       }
     }, this.FALLBACK_SWEEP_INTERVAL);
+  }
+
+  /**
+   * Find timeouts whose flag-fall time has passed and process them.
+   * O(expired): only entries past their score are returned, so healthy
+   * games cost nothing per sweep.
+   */
+  private async sweepExpiredTimeouts(): Promise<void> {
+    const expired = await redis.zrangebyscore(
+      this.TIMEOUT_INDEX_KEY,
+      '-inf',
+      Date.now(),
+      'WITHSCORES',
+    );
+
+    for (let i = 0; i < expired.length; i += 2) {
+      const member = expired[i]!;
+      const expectedTimeoutAt = Number(expired[i + 1]);
+
+      // ZREM as atomic claim: if another instance already swept this entry, skip it
+      const claimed = await redis.zrem(this.TIMEOUT_INDEX_KEY, member);
+      if (claimed === 0) continue;
+
+      const [gameId, playerId, color] = member.split(':');
+      if (!gameId || !playerId || (color !== 'w' && color !== 'b')) {
+        log.warn({ member }, 'sweep: malformed timeout index entry dropped');
+        continue;
+      }
+
+      // Delegates lock/re-verify/reschedule to the same path Bull jobs use;
+      // reschedules re-add the index entry, stale entries are dropped
+      await this.processTimeoutJob({ gameId, playerId, color, expectedTimeoutAt });
+    }
+  }
+
+  /**
+   * Reconcile ONGOING games from Postgres on startup.
+   * Covers total Redis loss: rebuilds missing game caches and reschedules
+   * timeout jobs. Runs on every instance, so it must stay idempotent and
+   * never end games directly — endGame is only race-safe behind the sweep's
+   * ZREM claim + game lock, so already-expired games are handed to the sweep.
+   */
+  async recoverActiveGames(): Promise<void> {
+    // Moves are fetched lazily per game below: on rolling deploys the caches
+    // survive in Redis, so hydrating move history for every game would be
+    // wasted work in the common case
+    const games = await prisma.game.findMany({
+      where: { status: 'ONGOING' },
+    });
+
+    let recovered = 0;
+
+    for (const game of games) {
+      try {
+        // Clocks are paused until both players ready; the ready watchdog owns that phase
+        const readyState = await this.getReadyState(game.id);
+        if (readyState && (!readyState.whiteReady || !readyState.blackReady)) {
+          continue;
+        }
+
+        let cache = await this.getGameCache(game.id);
+        if (!cache) {
+          // Cache lost — rebuild from DB (moves persist async, so clocks may be
+          // slightly stale; processTimeoutJob re-verifies before flagging)
+          const moves = await prisma.move.findMany({
+            where: { gameId: game.id },
+            orderBy: { moveNumber: 'asc' },
+          });
+          await this.cacheGame({ ...game, moves });
+          cache = await this.getGameCache(game.id);
+        }
+        if (!cache) continue;
+
+        const onMoveIsWhite = cache.currentTurn === 'w';
+        const playerId = onMoveIsWhite ? cache.whitePlayerId : cache.blackPlayerId;
+        const lastMoveAt =
+          typeof cache.lastMoveAt === 'string'
+            ? new Date(cache.lastMoveAt).getTime()
+            : cache.lastMoveAt;
+        const budget = onMoveIsWhite ? cache.whiteTimeLeft : cache.blackTimeLeft;
+        const timeLeft = budget - (Date.now() - lastMoveAt);
+
+        if (timeLeft <= 0) {
+          // Flag fell during the outage. Index it with its past flag-fall time;
+          // the next sweep tick claims and ends it exactly once, under lock.
+          await redis.zadd(
+            this.TIMEOUT_INDEX_KEY,
+            lastMoveAt + budget,
+            `${game.id}:${playerId}:${cache.currentTurn}`,
+          );
+        } else {
+          await this.scheduleTimeoutJob(game.id, playerId, cache.currentTurn, timeLeft);
+        }
+        recovered++;
+      } catch (error) {
+        log.error({ err: error, gameId: game.id }, 'failed to recover active game');
+      }
+    }
+
+    log.info({ ongoing: games.length, recovered }, 'active game recovery complete');
   }
 
   /**

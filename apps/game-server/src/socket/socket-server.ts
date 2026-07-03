@@ -14,6 +14,7 @@ import { setupMatchmakingHandlers } from './handlers/matchmaking';
 import { setupPresenceHandlers } from './handlers/presence';
 import { authMiddleware } from './middleware/auth.middleware';
 import { setupRedisAdapter } from './redis';
+import { gameService } from './services/game';
 
 const log = logger.child({ module: 'socket:server' });
 
@@ -66,6 +67,8 @@ export async function initializeSocketServer(httpServer: HTTPServer): Promise<Ty
   processChallengeExpirationQueue(io);
 
   await cleanupExpiredChallenges(io);
+
+  await gameService.recoverActiveGames();
 
   log.info('server initialized');
 
